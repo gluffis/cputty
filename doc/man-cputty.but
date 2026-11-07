@@ -1,0 +1,71 @@
+\cfg{man-identity}{cputty}{1}{2026-11-07}{PuTTY tool suite}{PuTTY tool suite}
+
+\H{cputty-manpage} Man page for cputty
+
+\S{cputty-manpage-name} NAME
+
+\cw{cputty} \- cluster SSH client for X: one console typing into many PuTTY sessions
+
+\S{cputty-manpage-synopsis} SYNOPSIS
+
+\c cputty [ options ] host [ host ... ]
+\e bbbbbb   iiiiiii     iiii   iiii
+
+\S{cputty-manpage-description} DESCRIPTION
+
+\cw{cputty} is a variant of \cw{putty}(\e{1}) in the style of the
+classic \cw{cssh} cluster administration tools. It opens one PuTTY
+terminal window for each \e{host} given on the command line, together
+with a small \e{console} window.
+
+Keystrokes typed into the console window are sent to every session
+whose box is ticked in the console's host list. The \q{All}, \q{None}
+and \q{Invert} buttons change which sessions are ticked. Keystrokes
+typed into an individual terminal window go to that session only, so
+you can switch freely between typing to the whole cluster and
+attending to a single machine.
+
+Each keystroke from the console is translated by each session
+separately, so terminal modes such as application cursor keys are
+honoured per session. Sessions whose connection has closed no longer
+receive input from the console; close their windows directly.
+
+Closing the console window closes all the sessions and exits
+\cw{cputty}. \cw{cputty} also exits when the last session window is
+closed.
+
+Sessions started from a terminal window's menu (\q{New Session},
+\q{Duplicate Session} and \q{Saved Sessions}) open in the same
+process and join the console's host list.
+
+\S{cputty-manpage-options} OPTIONS
+
+\cw{cputty} accepts the same options as \cw{putty}(\e{1}). Each
+option applies to every host. Each \e{host} argument is interpreted as
+\cw{putty} would interpret its own host argument, so for example
+\cw{user@host} is accepted.
+
+Unlike \cw{putty}, \cw{cputty} treats \e{every} non-option argument as
+a host name. To connect to a non-default port, use \cw{\-P}
+\e{port}.
+
+If no \e{host} is given, \cw{cputty} starts a single session as
+\cw{putty} would (from \cw{\-load}, or via the configuration box).
+More sessions can then be added from the terminal window's menu.
+
+\S{cputty-manpage-examples} EXAMPLES
+
+\c cputty -l root web1 web2 web3
+
+\c cputty -ssh -i ~/.ssh/admin.ppk admin@db1 admin@db2
+
+\S{cputty-manpage-limitations} LIMITATIONS
+
+A \cw{\-geometry} option applies to every window, so giving a window
+position will place all the windows on top of each other.
+
+A password given with \cw{\-pw} is offered to every host.
+
+\S{cputty-manpage-see-also} SEE ALSO
+
+\cw{putty}(\e{1})
