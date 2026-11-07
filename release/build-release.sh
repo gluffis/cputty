@@ -15,8 +15,8 @@
 #
 # Usage: release/build-release.sh VERSION [OUTPUT_DIR]
 #
-# Needs: cmake, gcc, GTK 3 development files, mingw-w64, dpkg-dev
-# (dpkg-deb, dpkg-shlibdeps), fakeroot, zip. VERSION must match the
+# Needs: cmake, gcc, GTK 3 development files, mingw-w64, halibut (for
+# the man pages), dpkg-dev (dpkg-deb, dpkg-shlibdeps), fakeroot, zip. VERSION must match the
 # RELEASE defined in version.h.
 
 set -euo pipefail
@@ -34,6 +34,13 @@ if ! tr -d '\r' < "$SRC/version.h" | grep -qx "#define RELEASE $VERSION"; then
     exit 1
 fi
 
+for tool in halibut dpkg-deb dpkg-shlibdeps fakeroot zip x86_64-w64-mingw32-strip; do
+    if ! command -v "$tool" > /dev/null; then
+        echo "error: $tool not found" >&2
+        exit 1
+    fi
+done
+
 TOOLS="putty plink pscp psftp puttygen pageant"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -41,7 +48,8 @@ mkdir -p "$OUT"
 
 echo "== Building Linux binaries"
 cmake -S "$SRC" -B "$work/linux" -DCMAKE_BUILD_TYPE=Release > "$work/linux.log"
-cmake --build "$work/linux" -j"$JOBS" --target cputty $TOOLS >> "$work/linux.log"
+cmake --build "$work/linux" -j"$JOBS" --target cputty $TOOLS manpages \
+      >> "$work/linux.log"
 
 echo "== Building Windows binaries"
 cmake -S "$SRC" -B "$work/win64" \
@@ -55,6 +63,7 @@ mkdir -p "$work/$tarname"
 for b in cputty $TOOLS; do
     install -m 755 "$work/linux/$b" "$work/$tarname/$b"
     strip "$work/$tarname/$b"
+    install -D -m 644 "$work/linux/doc/$b.1" "$work/$tarname/man/man1/$b.1"
 done
 install -m 644 "$SRC/LICENCE" "$work/$tarname/LICENCE"
 cat > "$work/$tarname/README.txt" <<EOF
@@ -65,6 +74,7 @@ terminal window per host plus a console window whose keystrokes are
 sent to every ticked session.
 
   ./cputty -l user host1 host2 host3
+  man -l man/man1/cputty.1
 
 Also included: SSH-only builds of putty, plink, pscp, psftp, puttygen
 and pageant (Telnet, Rlogin, SUPDUP, Raw and serial support removed).
@@ -86,11 +96,14 @@ make_deb() {
     local pkg=$1 short=$2 long=$3 extra=$4
     shift 4
     local root="$work/deb-$pkg/root"
-    mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/doc/$pkg"
+    mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/doc/$pkg" \
+             "$root/usr/share/man/man1"
 
     for b in "$@"; do
         install -m 755 "$work/linux/$b" "$root/usr/bin/$b"
         strip "$root/usr/bin/$b"
+        gzip -9n < "$work/linux/doc/$b.1" > "$root/usr/share/man/man1/$b.1.gz"
+        chmod 644 "$root/usr/share/man/man1/$b.1.gz"
     done
 
     install -m 644 "$SRC/LICENCE" "$root/usr/share/doc/$pkg/copyright"

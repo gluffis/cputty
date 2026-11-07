@@ -1,49 +1,141 @@
-PuTTY source code README
-========================
+cputty
+======
 
-This is the README for the source code of PuTTY, a free Windows and
-Unix Telnet and SSH client.
+cputty is a fork of PuTTY 0.85 <https://www.chiark.greenend.org.uk/~sgtatham/putty/>
+that adds cluster SSH: one console window whose keystrokes go to many
+SSH sessions at once, in the style of the classic cssh tools on Solaris
+and Linux. It runs on Linux (GTK 3) and Windows.
 
-PuTTY is built using CMake <https://cmake.org/>. To compile in the
-simplest way (on any of Linux, Windows or Mac), the general method is
-to run these commands in the source directory:
+This is not an official PuTTY release and is not supported by the PuTTY
+developers. Please report problems with cputty at
+<https://github.com/gluffis/cputty/issues>, not to the PuTTY team.
 
-  cmake .
-  cmake --build .
 
-These commands will expect to find a usable compile toolchain on your
-path. So if you're building on Windows with MSVC, you'll need to make
-sure that the MSVC compiler (cl.exe) is on your path, by running one
-of the 'vcvars32.bat' setup scripts provided with the tools. Then the
-cmake commands above should work.
+Cluster SSH: the cputty program
+-------------------------------
 
-To install in the simplest way on Linux or Mac:
+  cputty -l root web1 web2 web3          (Linux)
+  cputty.exe -l root web1 web2 web3      (Windows)
 
-  cmake --build . --target install
+cputty opens one ordinary PuTTY terminal window for each host on the
+command line, plus a console window:
+
+ - Keystrokes typed in the console go to every session that is ticked
+   in the console's host list. Typing in a terminal window goes to that
+   session alone, so you can switch between driving the whole cluster
+   and fixing one machine.
+
+ - The All, None and Invert buttons change which sessions are ticked.
+   The console title and status line show how many sessions are
+   receiving input.
+
+ - A text field shows what you are typing, so you can see the command
+   you are sending. It holds the current line (up to 200 characters)
+   and clears on Return, on Escape, or after 15 seconds without typing.
+   Tick "Hide typed text" to stop it showing anything, for example
+   while typing passwords.
+
+ - Each session translates keystrokes itself, so per-session terminal
+   modes (such as application cursor keys) work. On Windows, dead keys
+   and other keyboard-layout features work in broadcast input too.
+
+ - Sessions whose connection has closed stop receiving console input.
+   New Session, Duplicate Session and Saved Sessions from a terminal
+   window's menu open in the same process and join the host list.
+
+ - Closing the console closes every session (it asks first if any are
+   still connected). cputty also exits when the last session closes.
+
+All putty options are accepted and apply to every host. Every
+non-option argument is a host name, so use -P to choose a port. A
+password given with -pw is offered to every host. With no hosts,
+cputty starts a single session the way putty does. See "man cputty"
+for details.
+
+
+Other differences from upstream PuTTY
+-------------------------------------
+
+ - SSH only. Telnet, Rlogin, SUPDUP, Raw and serial-line connections
+   have been removed from every program, along with the Telnet proxy
+   type. A saved session that used one of the removed protocols opens
+   as SSH on port 22; one that used the Telnet proxy refuses to
+   connect rather than connecting directly. There is no PuTTYtel.
+
+ - Faster default builds. CMake builds a Release (optimised) build by
+   default with link-time optimisation. Cryptographic code is
+   deliberately kept at -O2 without link-time optimisation, so that
+   PuTTY's side-channel tests still hold. Some hot paths (buffer
+   appends and scrollback compression) have been tuned.
+
+ - Version strings identify the build as cputty, for example
+   "cputty 1.0.0 (based on PuTTY 0.85)" and the SSH banner
+   "SSH-2.0-PuTTY_cputty_1.0.0", so servers don't mistake it for an
+   official PuTTY release.
+
+The other programs (putty, plink, pscp, psftp, puttygen, pageant, pterm)
+otherwise behave as in PuTTY 0.85.
+
+
+Downloads
+---------
+
+Release binaries for Linux x86_64 and Windows x86_64, plus Debian
+packages, are on the releases page:
+
+  https://github.com/gluffis/cputty/releases
+
+ - cputty_VERSION_amd64.deb installs only cputty and can be installed
+   alongside Debian's putty packages.
+ - cputty-suite_VERSION_amd64.deb installs the SSH-only putty, plink,
+   pscp, psftp, puttygen and pageant, and replaces Debian's putty and
+   putty-tools packages.
+
+
+Building
+--------
+
+cputty is built using CMake <https://cmake.org/>. In the source
+directory:
+
+  cmake -B build
+  cmake --build build -j
+
+This builds a Release build with link-time optimisation. Pass
+-DPUTTY_LTO=OFF to turn link-time optimisation off, or
+-DCMAKE_BUILD_TYPE=Debug for a debug build. On Linux you need the GTK 3
+development files.
+
+To cross-compile the Windows programs on Linux with mingw-w64:
+
+  cmake -B build-win64 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw.cmake
+  cmake --build build-win64 -j
+
+To install on Linux:
+
+  cmake --build build --target install
+
+Man pages are built from the Halibut (.but) files in the doc
+subdirectory when Halibut is installed. Halibut is at
+<https://www.chiark.greenend.org.uk/~sgtatham/halibut/>.
+
+release/build-release.sh VERSION builds all the release files (Linux
+tarball, both Debian packages, Windows zip and SHA256SUMS).
 
 On Unix, pterm would like to be setuid or setgid, as appropriate, to
 permit it to write records of user logins to /var/run/utmp and
-/var/log/wtmp. (Of course it will not use this privilege for
-anything else, and in particular it will drop all privileges before
-starting up complex subsystems like GTK.) The cmake install step
-doesn't attempt to add these privileges, so if you want user login
-recording to work, you should manually ch{own,grp} and chmod the
-pterm binary yourself after installation. If you don't do this,
-pterm will still work, but not update the user login databases.
+/var/log/wtmp. (It will not use this privilege for anything else, and
+drops all privileges before starting up complex subsystems like GTK.)
+The install step doesn't add these privileges, so if you want login
+recording to work, chown/chgrp and chmod the pterm binary yourself
+after installation. Otherwise pterm still works, but doesn't update
+the login databases.
 
-Documentation (in various formats including Windows Help and Unix
-`man' pages) is built from the Halibut (`.but') files in the `doc'
-subdirectory. If you aren't using one of our source snapshots,
-you'll need to do this yourself. Halibut can be found at
-<https://www.chiark.greenend.org.uk/~sgtatham/halibut/>.
 
-The PuTTY home web site is
+Licence
+-------
 
-    https://www.chiark.greenend.org.uk/~sgtatham/putty/
-
-If you want to send bug reports or feature requests, please read the
-Feedback section of the web site before doing so. Sending one-line
-reports saying `it doesn't work' will waste your time as much as
-ours.
-
-See the file LICENCE for the licence conditions.
+cputty is distributed under the same MIT licence as PuTTY. See the
+file LICENCE. PuTTY is copyright Simon Tatham and the other PuTTY
+contributors; the cluster and other changes in this fork are offered
+under the same terms.
