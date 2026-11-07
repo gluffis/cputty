@@ -146,3 +146,5 @@ Makefile
 /windows/*.wixpdb
 /build/
 /release-out/
+# Local agent instructions; not part of the project
+/AGENTS.md
