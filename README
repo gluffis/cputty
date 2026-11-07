@@ -9,6 +9,8 @@ and Linux. It runs on Linux (GTK 3) and Windows.
 This is not an official PuTTY release and is not supported by the PuTTY
 developers. Please report problems with cputty at
 <https://github.com/gluffis/cputty/issues>, not to the PuTTY team.
+Security vulnerabilities should be reported privately instead: see
+SECURITY.md.
 
 
 Cluster SSH: the cputty program

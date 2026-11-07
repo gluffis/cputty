@@ -66,6 +66,13 @@ position will place all the windows on top of each other.
 
 A password given with \cw{\-pw} is offered to every host.
 
+\S{cputty-manpage-more-information} MORE INFORMATION
+
+cputty's home page, with its releases and issue tracker, is
+\W{https://github.com/gluffis/cputty}\cw{https://github.com/gluffis/cputty}.
+cputty is a modified version of PuTTY and is not supported by the
+PuTTY developers, so please report problems with it there.
+
 \S{cputty-manpage-see-also} SEE ALSO
 
 \cw{putty}(\e{1})

@@ -226,6 +226,10 @@ the manual on the PuTTY web page:
 
 \W{https://www.chiark.greenend.org.uk/~sgtatham/putty/}\cw{https://www.chiark.greenend.org.uk/~sgtatham/putty/}
 
+This build comes from cputty, a modified version of PuTTY that is not
+supported by the PuTTY developers. Please report problems with it at
+\W{https://github.com/gluffis/cputty/issues}\cw{https://github.com/gluffis/cputty/issues}.
+
 \S{pscp-manpage-bugs} BUGS
 
 This man page isn't terribly complete. See the above web link for

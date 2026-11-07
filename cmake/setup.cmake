@@ -12,18 +12,7 @@ endif()
 # Link-time optimisation for optimised builds, where supported. It
 # both speeds things up and shrinks the binaries. Disable with
 # -DPUTTY_LTO=OFF (e.g. for faster rebuilds or easier debugging).
-#
-# It defaults to off with -DSTRICT=ON (warnings as errors, as used by
-# upstream CI): cross-module analysis under LTO produces a false
-# -Wstringop-overflow in sk_addrcopy (unix/network.c), whose callers
-# all check the address type before passing a 4-byte buffer.
-if(STRICT)
-  set(putty_lto_default OFF)
-else()
-  set(putty_lto_default ON)
-endif()
-option(PUTTY_LTO "Use link-time optimisation in optimised builds"
-  ${putty_lto_default})
+option(PUTTY_LTO "Use link-time optimisation in optimised builds" ON)
 if(PUTTY_LTO AND NOT CMAKE_VERSION VERSION_LESS 3.9
     AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
   cmake_policy(SET CMP0069 NEW)

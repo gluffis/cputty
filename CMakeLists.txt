@@ -208,3 +208,13 @@ if(putty_crypto_opt)
     ${CMAKE_SOURCE_DIR}/utils/smemclr.c
     PROPERTIES COMPILE_OPTIONS "${putty_crypto_opt};-fno-lto")
 endif()
+
+# Link-time optimisation would inline sk_addrcopy (unix/network.c) into
+# the SOCKS 5 proxy code, where GCC can't see that the caller has
+# already checked the address type, and so warns of a 16-byte write
+# into a 4-byte buffer. That can't happen, so build network.c without
+# LTO to avoid the false alarm. None of its code is speed-critical.
+if(platform STREQUAL unix AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  set_source_files_properties(${CMAKE_SOURCE_DIR}/unix/network.c
+    PROPERTIES COMPILE_OPTIONS "-fno-lto")
+endif()

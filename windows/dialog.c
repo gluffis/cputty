@@ -441,7 +441,7 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
           case IDA_WEB:
             /* Load web browser */
             ShellExecute(hwnd, "open",
-                         "https://www.chiark.greenend.org.uk/~sgtatham/putty/",
+                         "https://github.com/gluffis/cputty",
                          0, 0, SW_SHOWDEFAULT);
             return 0;
         }

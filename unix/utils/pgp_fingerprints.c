@@ -9,9 +9,10 @@
 
 void pgp_fingerprints(void)
 {
-    fputs("These are the fingerprints of the PuTTY PGP Master Keys. They can\n"
-          "be used to establish a trust path from this executable to another\n"
-          "one. See the manual for more information.\n"
+    fputs("These are the fingerprints of the PuTTY PGP Master Keys, which the\n"
+          "PuTTY developers use to sign official PuTTY releases. This program\n"
+          "is from cputty, a modified version of PuTTY: cputty releases are\n"
+          "not signed with these keys, so they can't be used to verify it.\n"
           "(Note: these fingerprints have nothing to do with SSH!)\n"
           "\n"
           "PuTTY Master Key as of " PGP_MASTER_KEY_YEAR
