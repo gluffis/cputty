@@ -21,9 +21,19 @@ void *strbuf_append(strbuf *buf_o, size_t len)
 {
     struct strbuf_impl *buf = container_of(buf_o, struct strbuf_impl, visible);
     char *toret;
-    sgrowarray_general(
-        buf->visible.s, buf->size, buf->visible.len + 1, len, buf->nm);
-    STRBUF_SET_UPTR(buf);
+    /*
+     * Fast path: skip safegrowarray (and its range assertions) when
+     * the buffer already has room, which is almost always. This is
+     * hot: e.g. scrollback compression appends one byte at a time.
+     * Overflow-safe: the invariant len + 1 <= size (room for the
+     * trailing NUL) means size - (len + 1) cannot wrap. The condition
+     * matches safegrowarray's own "size > oldlen + extralen" test.
+     */
+    if (len >= buf->size - (buf->visible.len + 1)) {
+        sgrowarray_general(
+            buf->visible.s, buf->size, buf->visible.len + 1, len, buf->nm);
+        STRBUF_SET_UPTR(buf);
+    }
     toret = buf->visible.s + buf->visible.len;
     buf->visible.len += len;
     buf->visible.s[buf->visible.len] = '\0';

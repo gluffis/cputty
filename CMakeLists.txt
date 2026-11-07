@@ -195,3 +195,16 @@ if(platform STREQUAL unix)
 endif()
 
 configure_file(cmake/cmake.h.in ${GENERATED_SOURCES_DIR}/cmake.h)
+
+# Crypto code is built the way upstream ships it (-O2, no LTO; see
+# putty_crypto_build_settings in cmake/setup.cmake). The same applies
+# to the constant-time comparison and memory wiping helpers in utils,
+# which LTO could otherwise inline into callers. Everything else keeps
+# -O3 and LTO.
+putty_crypto_build_settings(crypto)
+if(putty_crypto_opt)
+  set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/utils/smemeq.c
+    ${CMAKE_SOURCE_DIR}/utils/smemclr.c
+    PROPERTIES COMPILE_OPTIONS "${putty_crypto_opt};-fno-lto")
+endif()

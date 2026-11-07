@@ -75,6 +75,7 @@ function(test_compile_with_flags outvar)
     set(libname object_lib_${outvar})
     add_library(${libname} OBJECT ${OPT_ADD_SOURCES_IF_SUCCESSFUL})
     target_compile_options(${libname} PRIVATE ${flags})
+    putty_crypto_build_settings(${libname})
     target_sources(crypto PRIVATE $<TARGET_OBJECTS:${libname}>)
   endif()
 

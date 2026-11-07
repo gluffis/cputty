@@ -411,6 +411,27 @@ static void move_termchar(termline *line, termchar *dest, termchar *src)
  * bloating the terminal emulator's memory footprint unless those
  * features are in constant use.)
  */
+/*
+ * Direct strbuf appenders for the scrollback compressor below. They
+ * produce exactly the same bytes as put_byte/put_uint16/put_uint32
+ * (big-endian), but call strbuf_append directly instead of going
+ * through the BinarySink function pointer, so the compiler can inline
+ * them. This loop runs once per byte of every line scrolled off the
+ * top of the screen, so the indirect call was a measurable cost.
+ */
+static inline void sb_put_byte(strbuf *b, unsigned char val)
+{
+    *(unsigned char *)strbuf_append(b, 1) = val;
+}
+static inline void sb_put_uint16(strbuf *b, unsigned long val)
+{
+    PUT_16BIT_MSB_FIRST(strbuf_append(b, 2), val);
+}
+static inline void sb_put_uint32(strbuf *b, unsigned long val)
+{
+    PUT_32BIT_MSB_FIRST(strbuf_append(b, 4), val);
+}
+
 static void makerle(strbuf *b, termline *ldata,
                     void (*makeliteral)(strbuf *b, termchar *c,
                                         unsigned long *state))
@@ -424,7 +445,7 @@ static void makerle(strbuf *b, termline *ldata,
 
     hdrpos = b->len;
     hdrsize = 0;
-    put_byte(b, 0);
+    sb_put_byte(b, 0);
     prevlen = prevpos = 0;
     prev2 = false;
 
@@ -500,7 +521,7 @@ static void makerle(strbuf *b, termline *ldata,
 
                 hdrpos = b->len;
                 hdrsize = 0;
-                put_byte(b, 0);
+                sb_put_byte(b, 0);
                 /* And ensure this run doesn't interfere with the next. */
                 prevlen = prevpos = 0;
                 prev2 = false;
@@ -531,7 +552,7 @@ static void makerle(strbuf *b, termline *ldata,
             b->u[hdrpos] = hdrsize - 1;
             hdrpos = b->len;
             hdrsize = 0;
-            put_byte(b, 0);
+            sb_put_byte(b, 0);
             prevlen = prevpos = 0;
             prev2 = false;
         }
@@ -585,20 +606,20 @@ static void makeliteral_chr(strbuf *b, termchar *c, unsigned long *state)
      * instead.
      */
     if ((c->chr & ~0x7F) == *state) {
-        put_byte(b, (unsigned char)(c->chr & 0x7F));
+        sb_put_byte(b, (unsigned char)(c->chr & 0x7F));
     } else if (c->chr < 0x4000) {
-        put_byte(b, (unsigned char)(((c->chr >> 8) & 0x3F) | 0x80));
-        put_byte(b, (unsigned char)(c->chr & 0xFF));
+        sb_put_byte(b, (unsigned char)(((c->chr >> 8) & 0x3F) | 0x80));
+        sb_put_byte(b, (unsigned char)(c->chr & 0xFF));
     } else if (c->chr < 0x200000) {
-        put_byte(b, (unsigned char)(((c->chr >> 16) & 0x1F) | 0xC0));
-        put_uint16(b, c->chr & 0xFFFF);
+        sb_put_byte(b, (unsigned char)(((c->chr >> 16) & 0x1F) | 0xC0));
+        sb_put_uint16(b, c->chr & 0xFFFF);
     } else if (c->chr < 0x10000000) {
-        put_byte(b, (unsigned char)(((c->chr >> 24) & 0x0F) | 0xE0));
-        put_byte(b, (unsigned char)((c->chr >> 16) & 0xFF));
-        put_uint16(b, c->chr & 0xFFFF);
+        sb_put_byte(b, (unsigned char)(((c->chr >> 24) & 0x0F) | 0xE0));
+        sb_put_byte(b, (unsigned char)((c->chr >> 16) & 0xFF));
+        sb_put_uint16(b, c->chr & 0xFFFF);
     } else {
-        put_byte(b, 0xF0);
-        put_uint32(b, c->chr);
+        sb_put_byte(b, 0xF0);
+        sb_put_uint32(b, c->chr);
     }
     *state = c->chr & ~0xFF;
 }
@@ -636,13 +657,13 @@ static void makeliteral_attr(strbuf *b, termchar *c, unsigned long *state)
     attr |= (colourbits << (32-9));
 
     if (attr < 0x8000) {
-        put_byte(b, (unsigned char)((attr >> 8) & 0xFF));
-        put_byte(b, (unsigned char)(attr & 0xFF));
+        sb_put_byte(b, (unsigned char)((attr >> 8) & 0xFF));
+        sb_put_byte(b, (unsigned char)(attr & 0xFF));
     } else {
-        put_byte(b, (unsigned char)(((attr >> 24) & 0x7F) | 0x80));
-        put_byte(b, (unsigned char)((attr >> 16) & 0xFF));
-        put_byte(b, (unsigned char)((attr >> 8) & 0xFF));
-        put_byte(b, (unsigned char)(attr & 0xFF));
+        sb_put_byte(b, (unsigned char)(((attr >> 24) & 0x7F) | 0x80));
+        sb_put_byte(b, (unsigned char)((attr >> 16) & 0xFF));
+        sb_put_byte(b, (unsigned char)((attr >> 8) & 0xFF));
+        sb_put_byte(b, (unsigned char)(attr & 0xFF));
     }
 }
 static void makeliteral_truecolour(strbuf *b, termchar *c, unsigned long *state)
@@ -650,17 +671,17 @@ static void makeliteral_truecolour(strbuf *b, termchar *c, unsigned long *state)
     /*
      * Put the used parts of the colour info into the buffer.
      */
-    put_byte(b, ((c->truecolour.fg.enabled ? 1 : 0) |
+    sb_put_byte(b, ((c->truecolour.fg.enabled ? 1 : 0) |
                  (c->truecolour.bg.enabled ? 2 : 0)));
     if (c->truecolour.fg.enabled) {
-        put_byte(b, c->truecolour.fg.r);
-        put_byte(b, c->truecolour.fg.g);
-        put_byte(b, c->truecolour.fg.b);
+        sb_put_byte(b, c->truecolour.fg.r);
+        sb_put_byte(b, c->truecolour.fg.g);
+        sb_put_byte(b, c->truecolour.fg.b);
     }
     if (c->truecolour.bg.enabled) {
-        put_byte(b, c->truecolour.bg.r);
-        put_byte(b, c->truecolour.bg.g);
-        put_byte(b, c->truecolour.bg.b);
+        sb_put_byte(b, c->truecolour.bg.r);
+        sb_put_byte(b, c->truecolour.bg.g);
+        sb_put_byte(b, c->truecolour.bg.b);
     }
 }
 static void makeliteral_cc(strbuf *b, termchar *c, unsigned long *state)

@@ -1,5 +1,64 @@
 include(CheckCCompilerFlag)
 
+# Default to an optimised build. Without this, a plain 'cmake .' gives
+# an empty CMAKE_BUILD_TYPE, i.e. no optimisation at all, which made
+# terminal output processing about 3.4x slower than Release + LTO.
+# Multi-config generators (Visual Studio, Xcode) choose per build.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING
+    "Build type: Debug, Release, RelWithDebInfo or MinSizeRel" FORCE)
+endif()
+
+# Link-time optimisation for optimised builds, where supported. It
+# both speeds things up and shrinks the binaries. Disable with
+# -DPUTTY_LTO=OFF (e.g. for faster rebuilds or easier debugging).
+#
+# It defaults to off with -DSTRICT=ON (warnings as errors, as used by
+# upstream CI): cross-module analysis under LTO produces a false
+# -Wstringop-overflow in sk_addrcopy (unix/network.c), whose callers
+# all check the address type before passing a 4-byte buffer.
+if(STRICT)
+  set(putty_lto_default OFF)
+else()
+  set(putty_lto_default ON)
+endif()
+option(PUTTY_LTO "Use link-time optimisation in optimised builds"
+  ${putty_lto_default})
+if(PUTTY_LTO AND NOT CMAKE_VERSION VERSION_LESS 3.9
+    AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+  cmake_policy(SET CMP0069 NEW)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT putty_ipo_ok OUTPUT putty_ipo_msg LANGUAGES C)
+  if(putty_ipo_ok)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO ON)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL ON)
+  else()
+    message(STATUS "Link-time optimisation not available: ${putty_ipo_msg}")
+  endif()
+endif()
+
+# Build cryptographic code the way upstream PuTTY ships it: -O2 and no
+# link-time optimisation. Its constant-time (side-channel safe)
+# properties are validated by test/testsc against that kind of build,
+# and more aggressive cross-module optimisation is not worth the risk
+# there. Applied to the crypto library and to the separate object
+# libraries holding its hardware-accelerated parts (crypto/CMakeLists).
+set(putty_crypto_opt)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND NOT MSVC)
+  set(putty_crypto_opt $<$<NOT:$<CONFIG:Debug>>:-O2>)
+endif()
+function(putty_crypto_build_settings target)
+  set_target_properties(${target} PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION OFF
+    INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF
+    INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO OFF
+    INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL OFF)
+  if(putty_crypto_opt)
+    target_compile_options(${target} PRIVATE ${putty_crypto_opt})
+  endif()
+endfunction()
+
 # Forcibly re-enable assertions, even if we're building in release
 # mode. This is a security project - assertions may be enforcing
 # security-critical constraints. A backstop #ifdef in defs.h should
