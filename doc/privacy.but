@@ -86,7 +86,7 @@ contain a record of which ones you have recently used.
 
 An exception is that saved sessions are not included in the jump list
 if they are not \q{launchable}, meaning that they actually specify a
-host name or serial port to connect to. A non-launchable session can
+host name to connect to. A non-launchable session can
 specify all the other configuration details (such as fonts, window
 size, keyboard setup, SSH features, etc), but leave out the hostname.
 
@@ -136,7 +136,7 @@ random, and do not contain an encrypted version of anything.
 \H{privacy-network} Sending information over the network
 
 PuTTY is a communications tool. Its \e{purpose} is to connect to
-another computer, over a network or a serial port, and send
+another computer, over a network, and send
 information. However it only makes the network connections that its
 configuration instructs it to.
 

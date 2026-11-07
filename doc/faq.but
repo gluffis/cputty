@@ -8,9 +8,9 @@ appendix in the manual.
 \S{faq-what}{Question} What is PuTTY?
 
 PuTTY is a client program for the SSH network protocol, usually used
-to run terminal sessions over a network. It also supports running
-terminal sessions over a serial port, and a variety of older legacy
-network protocols such as Telnet, Rlogin, and SUPDUP.
+to run terminal sessions over a network. (Earlier versions also
+supported serial ports and older protocols such as Telnet, Rlogin and
+SUPDUP; this version supports only SSH.)
 
 These protocols are all used to run a remote session on a computer,
 over a network. PuTTY implements the client end of that session: the
@@ -65,9 +65,6 @@ not, of course; it will depend on what kind of machine you're
 connecting to, and maybe your personal preferences. And many people
 will have no opinion either way.
 
-\b and, of course, support for things that aren't SSH. In particular,
-talking to serial ports instead of the network.
-
 But if none of this impresses you, and you'd rather use Windows's
 version of OpenSSH, that's up to you.
 
@@ -117,14 +114,6 @@ Remembering your password is a bad plan for obvious security
 reasons: anyone who gains access to your machine while you're away
 from your desk can find out the remembered password, and use it,
 abuse it or change it.
-
-In addition, it's not even \e{possible} for PuTTY to automatically
-send your password in a Telnet session, because Telnet doesn't give
-the client software any indication of which part of the login
-process is the password prompt. PuTTY would have to guess, by
-looking for words like \q{password} in the session data; and if your
-login program is written in something other than English, this won't
-work.
 
 In SSH, remembering your password would be possible in theory, but
 there doesn't seem to be much point since SSH supports public key
@@ -265,7 +254,7 @@ We don't know of any Android SSH application based on the PuTTY code.
 
 \H{faq-embedding} Embedding PuTTY in other programs
 
-\S{faq-dll}{Question} Is the SSH or Telnet code available as a DLL?
+\S{faq-dll}{Question} Is the SSH code available as a DLL?
 
 No, it isn't. It would take a reasonable amount of rewriting for
 this to be possible, and since the PuTTY project itself doesn't
@@ -291,8 +280,8 @@ should be able to make SSH connections from your program.
 
 \S{faq-term}{Question} What \i{terminal type} does PuTTY use?
 
-By default, PuTTY has always announced its terminal type to SSH (and
-Telnet) servers as \c{xterm}, and tried to behave close enough to
+By default, PuTTY has always announced its terminal type to SSH
+servers as \c{xterm}, and tried to behave close enough to
 \c{xterm} itself that this works well enough.
 
 PuTTY also supports some terminal \i{control sequences} not supported by
@@ -1315,7 +1304,7 @@ whoever runs your server.
 
 \S{faq-meaning}{Question} What does \q{PuTTY} mean?
 
-It's the name of a popular SSH and Telnet client.  Any other meaning
+It's the name of a popular SSH client.  Any other meaning
 is in the eye of the beholder.  It's been rumoured that \q{PuTTY}
 is the antonym of \q{\cw{getty}}, or that it's the stuff that makes your
 Windows useful, or that it's a kind of plutonium Teletype.  We

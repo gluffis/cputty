@@ -405,18 +405,9 @@ void lineedit_input(TermLineEditor *le, char ch, bool dedicated)
             return;
 
           case CTRL('Z'):
-            lineedit_delete_line(le);
-            if (!(le->flags & LE_SUSPEND))
-                break;                 /* treat as normal input */
-            lineedit_special(le, SS_SUSP, 0);
-            return;
-
           case CTRL('\\'):
             lineedit_delete_line(le);
-            if (!(le->flags & LE_ABORT))
-                break;                 /* treat as normal input */
-            lineedit_special(le, SS_ABORT, 0);
-            return;
+            break;                     /* then treat as normal input */
 
           case CTRL('D'):
             if (le->flags & LE_EOF_ALWAYS) {
@@ -442,37 +433,10 @@ void lineedit_input(TermLineEditor *le, char ch, bool dedicated)
             return;
 
           case CTRL('J'):
-            if (le->flags & LE_CRLF_NEWLINE) {
-                /*
-                 * If the previous character in the buffer is a
-                 * literal Ctrl-M, and now the user sends Ctrl-J, then
-                 * we amalgamate both into a newline event.
-                 */
-                if (le->tail && le->tail->nwire == 1 && 
-                    le->tail->wire[0] == CTRL('M')) {
-                    lineedit_delete_char(le); /* erase ^J from buffer */
-                    lineedit_complete_line(le);
-                    return;
-                }
-            } else {
-                /* If we're not in LE_CRLF_NEWLINE mode, then ^J by
-                 * itself acts as a full newline character */
-                lineedit_complete_line(le);
-                return;
-            }
-
-
           case CTRL('M'):
-            if (le->flags & LE_CRLF_NEWLINE) {
-                /* In this mode, ^M is literal, and can combine with
-                 * ^J (see case above). So do nothing, and fall
-                 * through into the 'treat it literally' code, */
-            } else {
-                /* If we're not in LE_CRLF_NEWLINE mode, then ^M by
-                 * itself acts as a full newline character */
-                lineedit_complete_line(le);
-                return;
-            }
+            /* Either acts by itself as a full newline character */
+            lineedit_complete_line(le);
+            return;
         }
     }
 

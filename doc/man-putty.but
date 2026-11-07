@@ -4,7 +4,7 @@
 
 \S{putty-manpage-name} NAME
 
-\cw{putty} - GUI SSH, Telnet, Rlogin, and SUPDUP client for X
+\cw{putty} - GUI SSH client for X
 
 \S{putty-manpage-synopsis} SYNOPSIS
 
@@ -13,8 +13,7 @@
 
 \S{putty-manpage-description} DESCRIPTION
 
-\cw{putty} is a graphical SSH, Telnet, Rlogin, and SUPDUP client for
-X. It is a direct port of the Windows SSH client of the same name.
+\cw{putty} is a graphical SSH client for X. It is a direct port of the Windows SSH client of the same name.
 
 \S{putty-manpage-options} OPTIONS
 
@@ -184,8 +183,7 @@ in verifying new files released by the PuTTY team.
 straight from the command line without having to go through the
 configuration box first.
 
-\dt \cw{\-ssh}, \cw{\-telnet}, \cw{\-rlogin}, \cw{\-supdup}, \cw{\-raw},
-\cw{-ssh-connection}, \cw{\-serial}
+\dt \cw{\-ssh}, \cw{-ssh-connection}
 
 \dd Select the protocol \cw{putty} will use to make the connection.
 
@@ -314,29 +312,6 @@ management; \e{only} the key(s) specified on the command-line will be
 accepted (unless a saved session also overrides host keys, in which
 case those will be added to), and the host key cache will not be
 written. }
-
-\dt \cw{\-sercfg} \e{configuration-string}
-
-\dd Specify the configuration parameters for the serial port, in
-\cw{-serial} mode. \e{configuration-string} should be a
-comma-separated list of configuration parameters as follows:
-
-\lcont{
-
-\b Any single digit from 5 to 9 sets the number of data bits.
-
-\b \cq{1}, \cq{1.5} or \cq{2} sets the number of stop bits.
-
-\b Any other numeric string is interpreted as a baud rate.
-
-\b A single lower-case letter specifies the parity: \cq{n} for none,
-\cq{o} for odd, \cq{e} for even, \cq{m} for mark and \cq{s} for space.
-
-\b A single upper-case letter specifies the flow control: \cq{N} for
-none, \cq{X} for XON/XOFF, \cq{R} for RTS/CTS and \cq{D} for
-DSR/DTR.
-
-}
 
 \S{putty-manpage-saved-sessions} SAVED SESSIONS
 

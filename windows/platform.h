@@ -739,11 +739,6 @@ char *agent_mutex_name(void);
 char *agent_named_pipe_name(void);
 
 /*
- * Exports from serial.c.
- */
-extern const struct BackendVtable serial_backend;
-
-/*
  * Exports from jump-list.c.
  */
 #define JUMPLIST_SUPPORTED             /* suppress #defines in putty.h */

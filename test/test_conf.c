@@ -719,27 +719,6 @@ void test_simple(void)
     test_str_simple(CONF_termspeed, "TerminalSpeed", "38400,38400");
     test_str_ambi_simple(CONF_username, "UserName", "", false);
     test_bool_simple(CONF_username_from_env, "UserNameFromEnvironment", false);
-    test_str_simple(CONF_localusername, "LocalUserName", "");
-    test_bool_simple(CONF_rfc_environ, "RFCEnviron", false);
-    test_bool_simple(CONF_passive_telnet, "PassiveTelnet", false);
-    test_str_simple(CONF_serline, "SerialLine", "");
-    test_int_simple(CONF_serspeed, "SerialSpeed", 9600);
-    test_int_simple(CONF_serdatabits, "SerialDataBits", 8);
-    test_int_simple(CONF_serstopbits, "SerialStopHalfbits", 2);
-    test_int_translated(CONF_serparity, "SerialParity", SER_PAR_NONE,
-                        SER_PAR_NONE, 0, SER_PAR_ODD, 1, SER_PAR_EVEN, 2,
-                        SER_PAR_MARK, 3, SER_PAR_SPACE, 4, -1);
-    test_int_translated(CONF_serflow, "SerialFlowControl", SER_FLOW_XONXOFF,
-                        SER_FLOW_NONE, 0, SER_FLOW_XONXOFF, 1,
-                        SER_FLOW_RTSCTS, 2, SER_FLOW_DSRDTR, 3, -1);
-    test_str_simple(CONF_supdup_location, "SUPDUPLocation", "The Internet");
-    test_int_translated(CONF_supdup_ascii_set, "SUPDUPCharset",
-                        SUPDUP_CHARSET_ASCII,
-                        SUPDUP_CHARSET_ASCII, 0,
-                        SUPDUP_CHARSET_ITS, 1,
-                        SUPDUP_CHARSET_WAITS, 2, -1);
-    test_bool_simple(CONF_supdup_more, "SUPDUPMoreProcessing", false);
-    test_bool_simple(CONF_supdup_scroll, "SUPDUPScrolling", false);
     test_bool_simple(CONF_bksp_is_delete, "BackspaceIsDelete", true);
     test_bool_simple(CONF_rxvt_homeend, "RXVTHomeEnd", false);
     test_int_translated(CONF_funky_type, "LinuxFunctionKeys", FUNKY_TILDE,
@@ -762,8 +741,6 @@ void test_simple(void)
     test_bool_simple(CONF_app_cursor, "ApplicationCursorKeys", false);
     test_bool_simple(CONF_app_keypad, "ApplicationKeypad", false);
     test_bool_simple(CONF_nethack_keypad, "NetHackKeypad", false);
-    test_bool_simple(CONF_telnet_keyboard, "TelnetKey", false);
-    test_bool_simple(CONF_telnet_newline, "TelnetRet", true);
     test_bool_simple(CONF_alt_f4, "AltF4", true);
     test_bool_simple(CONF_alt_space, "AltSpace", false);
     test_bool_simple(CONF_alt_only, "AltOnly", false);
@@ -911,15 +888,15 @@ void test_simple(void)
                         AUTO, 0, FORCE_OFF, 1, FORCE_ON, 2, -1);
     test_int_translated(CONF_proxy_type, "ProxyMethod", PROXY_NONE,
                         PROXY_NONE, 0, PROXY_SOCKS4, 1, PROXY_SOCKS5, 2,
-                        PROXY_HTTP, 3, PROXY_TELNET, 4, PROXY_CMD, 5,
+                        PROXY_HTTP, 3, PROXY_TELNET_REMOVED, 4, PROXY_CMD, 5,
                         PROXY_SSH_TCPIP, 6, PROXY_SSH_EXEC, 7,
                         PROXY_SSH_SUBSYSTEM, 8, -1);
     test_int_translated_load_legacy(
         CONF_proxy_type, "ProxyType", NULL, PROXY_NONE,
-        PROXY_HTTP, 1, PROXY_SOCKS5, 2, PROXY_TELNET, 3, PROXY_CMD, 4, -1);
+        PROXY_HTTP, 1, PROXY_SOCKS5, 2, PROXY_TELNET_REMOVED, 3, PROXY_CMD, 4, -1);
     test_int_translated_load_legacy(
         CONF_proxy_type, "ProxyType", load_prepare_socks4, PROXY_NONE,
-        PROXY_HTTP, 1, PROXY_SOCKS4, 2, PROXY_TELNET, 3, PROXY_CMD, 4, -1);
+        PROXY_HTTP, 1, PROXY_SOCKS4, 2, PROXY_TELNET_REMOVED, 3, PROXY_CMD, 4, -1);
     test_int_translated(CONF_remote_qtitle_action, "RemoteQTitleAction", TITLE_EMPTY,
                         TITLE_NONE, 0, TITLE_EMPTY, 1, TITLE_REAL, 2, -1);
     test_int_translated_load_legacy(

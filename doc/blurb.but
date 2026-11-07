@@ -25,7 +25,7 @@ page</a>.</p>}
 \cfg{chm-filename}{putty.chm}
 \cfg{pdf-filename}{putty.pdf}
 
-PuTTY is a free (MIT-licensed) Windows Telnet and SSH client. This
+PuTTY is a free (MIT-licensed) Windows SSH client. This
 manual documents PuTTY, and its companion utilities PSCP, PSFTP,
 Plink, Pageant and PuTTYgen.
 

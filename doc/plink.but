@@ -49,8 +49,7 @@ use Plink:
 \c   -pgpfp    print PGP key fingerprints and exit
 \c   -v        show verbose messages
 \c   -load sessname  Load settings from saved session
-\c   -ssh -telnet -rlogin -raw -serial
-\c             force use of a particular protocol
+\c   -ssh      force use of the SSH protocol
 \c   -ssh-connection
 \c             force use of the bare ssh-connection protocol
 \c   -P port   connect to specified port
@@ -60,8 +59,6 @@ use Plink:
 \c             use 'command' as local proxy
 \c   -preconnectcommand command
 \c             run 'command' before making network connection
-\c   -sercfg configuration-string (e.g. 19200,8,n,1,X)
-\c             Specify the serial configuration (serial only)
 \c The following options only apply to SSH connections:
 \c   -pwfile file   login with password read from specified file
 \c   -D [listen-IP:]listen-port
@@ -122,9 +119,9 @@ full-screen applications, for example, you can expect to see strange
 characters appearing in your window. Interactive connections like
 this are not the main point of Plink.
 
-In order to connect with a different protocol, you can give the
-command line options \c{\-ssh}, \c{\-ssh\-connection}, \c{\-telnet},
-\c{\-rlogin}, or \c{\-raw}. To make an SSH connection, for example:
+You can explicitly choose the protocol with the command line options
+\c{\-ssh} or \c{\-ssh\-connection}. To make an SSH connection, for
+example:
 
 \c C:\>plink -ssh login.example.com
 \c login as:

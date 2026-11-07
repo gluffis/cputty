@@ -46,8 +46,7 @@ struct Ldisc_tag {
     /*
      * Values cached out of conf.
      */
-    bool telnet_keyboard, telnet_newline;
-    int protocol, localecho, localedit;
+    int localecho, localedit;
 
     TermLineEditor *le;
     TermLineEditorCallbackReceiver le_rcv;
@@ -104,18 +103,12 @@ Ldisc *ldisc_create(Conf *conf, Terminal *term, Backend *backend, Seat *seat)
 
 void ldisc_configure(Ldisc *ldisc, Conf *conf)
 {
-    ldisc->telnet_keyboard = conf_get_bool(conf, CONF_telnet_keyboard);
-    ldisc->telnet_newline = conf_get_bool(conf, CONF_telnet_newline);
-    ldisc->protocol = conf_get_int(conf, CONF_protocol);
     ldisc->localecho = conf_get_int(conf, CONF_localecho);
     ldisc->localedit = conf_get_int(conf, CONF_localedit);
 
-    unsigned flags = 0;
-    if (ldisc->protocol == PROT_RAW)
-        flags |= LE_CRLF_NEWLINE;
-    if (ldisc->telnet_keyboard)
-        flags |= LE_INTERRUPT | LE_SUSPEND | LE_ABORT;
-    lineedit_modify_flags(ldisc->le, ~0U, flags);
+    /* No protocol-specific line-editing behaviour remains (it was
+     * all for the removed Telnet and Raw backends). */
+    lineedit_modify_flags(ldisc->le, ~0U, 0);
 }
 
 void ldisc_free(Ldisc *ldisc)
@@ -228,12 +221,7 @@ static void ldisc_lineedit_special(
 static void ldisc_lineedit_newline(TermLineEditorCallbackReceiver *rcv)
 {
     Ldisc *ldisc = container_of(rcv, Ldisc, le_rcv);
-    if (ldisc->protocol == PROT_RAW)
-        backend_send(ldisc->backend, "\r\n", 2);
-    else if (ldisc->protocol == PROT_TELNET && ldisc->telnet_newline)
-        backend_special(ldisc->backend, SS_EOL, 0);
-    else
-        backend_send(ldisc->backend, "\r", 1);
+    backend_send(ldisc->backend, "\r", 1);
 }
 
 static const TermLineEditorCallbackReceiverVtable
@@ -347,44 +335,8 @@ static void ldisc_input_queue_callback(void *ctx)
         } else {
             if (ECHOING)
                 seat_stdout(ldisc->seat, buf, len);
-            if (type == DEDICATED && ldisc->protocol == PROT_TELNET) {
-                while (len > 0) {
-                    char c = *buf++;
-                    len--;
-                    switch (c) {
-                      case CTRL('M'):
-                        if (ldisc->telnet_newline)
-                            backend_special(ldisc->backend, SS_EOL, 0);
-                        else
-                            backend_send(ldisc->backend, "\r", 1);
-                        break;
-                      case CTRL('?'):
-                      case CTRL('H'):
-                        if (ldisc->telnet_keyboard) {
-                            backend_special(ldisc->backend, SS_EC, 0);
-                            break;
-                        }
-                      case CTRL('C'):
-                        if (ldisc->telnet_keyboard) {
-                            backend_special(ldisc->backend, SS_IP, 0);
-                            break;
-                        }
-                      case CTRL('Z'):
-                        if (ldisc->telnet_keyboard) {
-                            backend_special(ldisc->backend, SS_SUSP, 0);
-                            break;
-                        }
-
-                      default:
-                        backend_send(ldisc->backend, &c, 1);
-                        break;
-                    }
-                }
-                ldisc_input_queue_consume(ldisc, buf - start);
-            } else {
-                backend_send(ldisc->backend, buf, len);
-                ldisc_input_queue_consume(ldisc, len);
-            }
+            backend_send(ldisc->backend, buf, len);
+            ldisc_input_queue_consume(ldisc, len);
         }
     }
 }

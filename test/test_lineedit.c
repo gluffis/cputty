@@ -301,56 +301,6 @@ static void test_noedit(Mock *mk)
     }
 
     /*
-     * Test the special-character cases for Telnet.
-     */
-    conf_set_int(mk->conf, CONF_protocol, PROT_TELNET);
-    conf_set_bool(mk->conf, CONF_telnet_newline, false);
-    conf_set_bool(mk->conf, CONF_telnet_keyboard, false);
-    ldisc_configure(mk->ldisc, mk->conf);
-
-    /* Without telnet_newline or telnet_keyboard, these all do the
-     * normal thing */
-    ldisc_send(mk->ldisc, "\x0D", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x0D"));
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x08", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x08"));
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x7F", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x7F"));
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x03", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x03"));
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x1A", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x1A"));
-    reset(mk);
-
-    /* telnet_newline controls translation of CR into SS_EOL */
-    conf_set_bool(mk->conf, CONF_telnet_newline, true);
-    ldisc_configure(mk->ldisc, mk->conf);
-    ldisc_send(mk->ldisc, "\x0D", -1, true);
-    EXPECT(mk, specials, 1, SS_EOL, 0);
-    reset(mk);
-
-    /* And telnet_keyboard controls the others */
-    conf_set_bool(mk->conf, CONF_telnet_newline, false);
-    conf_set_bool(mk->conf, CONF_telnet_keyboard, true);
-    ldisc_configure(mk->ldisc, mk->conf);
-    ldisc_send(mk->ldisc, "\x08", -1, true);
-    EXPECT(mk, specials, 1, SS_EC, 0);
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x7F", -1, true);
-    EXPECT(mk, specials, 1, SS_EC, 0);
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x03", -1, true);
-    EXPECT(mk, specials, 1, SS_IP, 0);
-    reset(mk);
-    ldisc_send(mk->ldisc, "\x1A", -1, true);
-    EXPECT(mk, specials, 1, SS_SUSP, 0);
-    reset(mk);
-
-    /*
      * In echo-but-no-edit mode, we also expect that every character
      * is echoed back to the display as a side effect, including when
      * it's sent as a special -1 keystroke.
@@ -410,7 +360,8 @@ static void test_edit(Mock *mk, bool echo)
         ldisc_send(mk->ldisc, "\015", 1, false);
         buf[1] = '\015';
         buf[2] = '\012';
-        EXPECT(mk, backend, make_ptrlen(buf, 3));
+        /* Return sends just CR to the server, but echoes CRLF */
+        EXPECT(mk, backend, make_ptrlen(buf, 2));
         EXPECT_TERMINAL(mk, make_ptrlen(buf, 3));
         reset(mk);
     }
@@ -422,6 +373,7 @@ static void test_edit(Mock *mk, bool echo)
 
         switch (ctls[c]) {
           case 'D': continue;          /* ^D sends EOF */
+          case 'J': continue;          /* ^J is Return too */
           case 'M': continue;          /* ^M is Return */
           case 'R': continue;          /* ^R redisplays line */
           case 'U': continue;          /* ^U deletes the line */
@@ -437,8 +389,7 @@ static void test_edit(Mock *mk, bool echo)
              */
 
             /*
-             * Also, ^C, ^Z and ^\ self-insert (when not in Telnet
-             * mode) but have the side effect of erasing the line
+             * Also, ^C, ^Z and ^\ self-insert but have the side effect of erasing the line
              * buffer so far. In this loop, that doesn't show up,
              * because the line buffer is empty already. However, I
              * don't test that, because it's silly, and probably
@@ -455,8 +406,7 @@ static void test_edit(Mock *mk, bool echo)
         EXPECT_TERMINAL(mk, make_ptrlen(termbuf, 2));
         ldisc_send(mk->ldisc, "\015", 1, false);
         backbuf[1] = '\015';
-        backbuf[2] = '\012';
-        EXPECT(mk, backend, make_ptrlen(backbuf, 3));
+        EXPECT(mk, backend, make_ptrlen(backbuf, 2));
         termbuf[2] = '\015';
         termbuf[3] = '\012';
         EXPECT_TERMINAL(mk, make_ptrlen(termbuf, 4));
@@ -479,8 +429,7 @@ static void test_edit(Mock *mk, bool echo)
         EXPECT_TERMINAL(mk, make_ptrlen(termbuf, 2));
         ldisc_send(mk->ldisc, "\015", 1, false);
         backbuf[1] = '\015';
-        backbuf[2] = '\012';
-        EXPECT(mk, backend, make_ptrlen(backbuf, 3));
+        EXPECT(mk, backend, make_ptrlen(backbuf, 2));
         termbuf[2] = '\015';
         termbuf[3] = '\012';
         EXPECT_TERMINAL(mk, make_ptrlen(termbuf, 4));
@@ -496,7 +445,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("ab\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("a\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("a\x0D"));
     reset(mk);
 
     /* Deleting a character written as a ^X code sends two BSBs to
@@ -508,7 +457,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("a^B\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("a\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("a\x0D"));
     reset(mk);
 
     /* ^D sends the line editing buffer without a trailing Return, if
@@ -517,7 +466,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL("abc"));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0D"));
     reset(mk);
 
     /* But if the buffer is empty, ^D sends SS_EOF */
@@ -532,14 +481,11 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc"));
     ldisc_send(mk->ldisc, "\x0D", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0D"));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc\x0D\x0A"));
     reset(mk);
 
-    /* In non-LE_CRLF_NEWLINE mode, either of ^M or ^J without the
-     * special flag also sends the line */
-    conf_set_int(mk->conf, CONF_protocol, PROT_SSH);
-    ldisc_configure(mk->ldisc, mk->conf);
+    /* Either of ^M or ^J without the special flag also sends the line */
     ldisc_send(mk->ldisc, "abc", 3, false);
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc"));
@@ -553,37 +499,6 @@ static void test_edit(Mock *mk, bool echo)
     ldisc_send(mk->ldisc, "\x0A", 1, true);
     EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0D"));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc\x0D\x0A"));
-    reset(mk);
-
-    /* In LE_CRLF_NEWLINE mode, non-special ^J is just literal */
-    conf_set_int(mk->conf, CONF_protocol, PROT_RAW);
-    ldisc_configure(mk->ldisc, mk->conf);
-    ldisc_send(mk->ldisc, "abc", 3, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc"));
-    ldisc_send(mk->ldisc, "\x0A", 1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc^J"));
-    /* So when we press Return it's sent */
-    ldisc_send(mk->ldisc, "\x0D", -1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0A\x0D\x0A"));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc^J\x0D\x0A"));
-    reset(mk);
-
-    /* In LE_CRLF_NEWLINE mode, non-special ^M is literal, but if
-     * followed with ^J, they combine into a Return */
-    conf_set_int(mk->conf, CONF_protocol, PROT_RAW);
-    ldisc_configure(mk->ldisc, mk->conf);
-    ldisc_send(mk->ldisc, "abc", 3, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc"));
-    ldisc_send(mk->ldisc, "\x0D", 1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc^M"));
-    /* So when we press Return it's sent */
-    ldisc_send(mk->ldisc, "\x0A", 1, true);
-    EXPECT(mk, backend, PTRLEN_LITERAL("abc\x0D\x0A"));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc^M\x08 \x08\x08 \x08\x0D\x0A"));
     reset(mk);
 
     /* ^R redraws the current line, after printing "^R" at the end of
@@ -608,7 +523,7 @@ static void test_edit(Mock *mk, bool echo)
         mk, PTRLEN_LITERAL(
             "a b c\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\x0D"));
     EXPECT_TERMINAL(
         mk, PTRLEN_LITERAL(
             "a b c\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x0D\x0A"));
@@ -634,7 +549,7 @@ static void test_edit(Mock *mk, bool echo)
         mk, PTRLEN_LITERAL(
             "hello, world\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", 1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("hello, \x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("hello, \x0D"));
     reset(mk);
     ldisc_send(mk->ldisc, "hello, world \x17", 14, false);
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
@@ -643,7 +558,7 @@ static void test_edit(Mock *mk, bool echo)
             "hello, world "
             "\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", 1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("hello, \x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("hello, \x0D"));
     reset(mk);
     ldisc_send(mk->ldisc, " hello \x17", 8, false);
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
@@ -651,7 +566,7 @@ static void test_edit(Mock *mk, bool echo)
         mk, PTRLEN_LITERAL(
             " hello \x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", 1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL(" \x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL(" \x0D"));
     reset(mk);
     ldisc_send(mk->ldisc, "hello \x17", 7, false);
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
@@ -659,7 +574,7 @@ static void test_edit(Mock *mk, bool echo)
         mk, PTRLEN_LITERAL(
             "hello \x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", 1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\x0D"));
     reset(mk);
     /* And this too knows that a control character written as ^X takes
      * two BSBs to delete */
@@ -673,7 +588,8 @@ static void test_edit(Mock *mk, bool echo)
     ldisc_send(mk->ldisc, "\x0D", -1, false);
     reset(mk);
 
-    /* Test handling of ^C and friends in non-telnet_keyboard mode */
+    /* Test handling of ^C and friends: they erase the line and are
+     * then entered literally */
     ldisc_send(mk->ldisc, "abc\x03", 4, false);
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc\x08 \x08\x08 \x08\x08 \x08^C"));
@@ -693,33 +609,6 @@ static void test_edit(Mock *mk, bool echo)
     ldisc_send(mk->ldisc, "\x0D", -1, false);
     reset(mk);
 
-    /* And in telnet_keyboard mode */
-    conf_set_bool(mk->conf, CONF_telnet_keyboard, true);
-    ldisc_configure(mk->ldisc, mk->conf);
-
-    /* FIXME: should we _really_ be sending EL before each of these? */
-    ldisc_send(mk->ldisc, "abc\x03", 4, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc\x08 \x08\x08 \x08\x08 \x08"));
-    EXPECT(mk, specials, 2, SS_EL, 0, SS_IP, 0);
-    ldisc_send(mk->ldisc, "\x0D", -1, false);
-    reset(mk);
-    ldisc_send(mk->ldisc, "abc\x1a", 4, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc\x08 \x08\x08 \x08\x08 \x08"));
-    EXPECT(mk, specials, 2, SS_EL, 0, SS_SUSP, 0);
-    ldisc_send(mk->ldisc, "\x0D", -1, false);
-    reset(mk);
-    ldisc_send(mk->ldisc, "abc\x1c", 4, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL(""));
-    EXPECT_TERMINAL(mk, PTRLEN_LITERAL("abc\x08 \x08\x08 \x08\x08 \x08"));
-    EXPECT(mk, specials, 2, SS_EL, 0, SS_ABORT, 0);
-    ldisc_send(mk->ldisc, "\x0D", -1, false);
-    reset(mk);
-
-    conf_set_bool(mk->conf, CONF_telnet_keyboard, false);
-    ldisc_configure(mk->ldisc, mk->conf);
-
     /* Test UTF-8 characters of various lengths and ensure deleting
      * one deletes the whole character from the buffer (by pressing
      * Return and seeing what gets sent) but sends a number of BSBs
@@ -733,7 +622,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("\xC2\xA0\xC2\xA1\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\xC2\xA0\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\xC2\xA0\x0D"));
     reset(mk);
 
     ldisc_send(mk->ldisc, "\xE2\xA0\x80\xE2\xA0\x81", 6, false);
@@ -743,7 +632,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("\xE2\xA0\x80\xE2\xA0\x81\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\xE2\xA0\x80\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\xE2\xA0\x80\x0D"));
     reset(mk);
 
     ldisc_send(mk->ldisc, "\xF0\x90\x80\x80\xF0\x90\x80\x81", 8, false);
@@ -754,7 +643,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("\xF0\x90\x80\x80\xF0\x90\x80\x81"
                                        "\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\xF0\x90\x80\x80\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\xF0\x90\x80\x80\x0D"));
     reset(mk);
 
     /* Double-width characters (Hangul, as it happens) */
@@ -766,7 +655,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("\xEA\xB0\x80\xEA\xB0\x81"
                                        "\x08 \x08\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\xEA\xB0\x80\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\xEA\xB0\x80\x0D"));
     reset(mk);
 
     /* Zero-width characters */
@@ -777,7 +666,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("\xE2\x80\x8B\xE2\x80\x8B"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\xE2\x80\x8B\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\xE2\x80\x8B\x0D"));
     reset(mk);
 
     /* And reset back to non-UTF-8 mode and expect high-bit-set bytes
@@ -792,7 +681,7 @@ static void test_edit(Mock *mk, bool echo)
     EXPECT(mk, backend, PTRLEN_LITERAL(""));
     EXPECT_TERMINAL(mk, PTRLEN_LITERAL("\xC2\xA0\xC2\xA1\x08 \x08"));
     ldisc_send(mk->ldisc, "\x0D", -1, false);
-    EXPECT(mk, backend, PTRLEN_LITERAL("\xC2\xA0\xC2\x0D\x0A"));
+    EXPECT(mk, backend, PTRLEN_LITERAL("\xC2\xA0\xC2\x0D"));
     reset(mk);
 
     /* Make sure we flush all the terminal contents at the end of this

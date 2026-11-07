@@ -195,28 +195,15 @@ static void config_host_handler(dlgcontrol *ctrl, dlgparam *dlg,
     Conf *conf = (Conf *)data;
 
     /*
-     * This function works just like the standard edit box handler,
-     * only it has to choose the control's label and text from two
-     * different places depending on the protocol.
+     * This function works just like the standard edit box handler.
+     * (It used to switch to a serial line field for the removed
+     * serial backend.)
      */
     if (event == EVENT_REFRESH) {
-        if (conf_get_int(conf, CONF_protocol) == PROT_SERIAL) {
-            /*
-             * This label text is carefully chosen to contain an n,
-             * since that's the shortcut for the host name control.
-             */
-            dlg_label_change(ctrl, dlg, "Serial line");
-            dlg_editbox_set(ctrl, dlg, conf_get_str(conf, CONF_serline));
-        } else {
-            dlg_label_change(ctrl, dlg, HOST_BOX_TITLE);
-            dlg_editbox_set(ctrl, dlg, conf_get_str(conf, CONF_host));
-        }
+        dlg_editbox_set(ctrl, dlg, conf_get_str(conf, CONF_host));
     } else if (event == EVENT_VALCHANGE) {
         char *s = dlg_editbox_get(ctrl, dlg);
-        if (conf_get_int(conf, CONF_protocol) == PROT_SERIAL)
-            conf_set_str(conf, CONF_serline, s);
-        else
-            conf_set_str(conf, CONF_host, s);
+        conf_set_str(conf, CONF_host, s);
         sfree(s);
     }
 }
@@ -229,35 +216,19 @@ static void config_port_handler(dlgcontrol *ctrl, dlgparam *dlg,
 
     /*
      * This function works similarly to the standard edit box handler,
-     * only it has to choose the control's label and text from two
-     * different places depending on the protocol.
+     * except that it displays an (invalid) port of 0 as blank.
      */
     if (event == EVENT_REFRESH) {
-        if (conf_get_int(conf, CONF_protocol) == PROT_SERIAL) {
-            /*
-             * This label text is carefully chosen to contain a p,
-             * since that's the shortcut for the port control.
-             */
-            dlg_label_change(ctrl, dlg, "Speed");
-            sprintf(buf, "%d", conf_get_int(conf, CONF_serspeed));
-        } else {
-            dlg_label_change(ctrl, dlg, PORT_BOX_TITLE);
-            if (conf_get_int(conf, CONF_port) != 0)
-                sprintf(buf, "%d", conf_get_int(conf, CONF_port));
-            else
-                /* Display an (invalid) port of 0 as blank */
-                buf[0] = '\0';
-        }
+        if (conf_get_int(conf, CONF_port) != 0)
+            sprintf(buf, "%d", conf_get_int(conf, CONF_port));
+        else
+            buf[0] = '\0';
         dlg_editbox_set(ctrl, dlg, buf);
     } else if (event == EVENT_VALCHANGE) {
         char *s = dlg_editbox_get(ctrl, dlg);
         int i = atoi(s);
         sfree(s);
-
-        if (conf_get_int(conf, CONF_protocol) == PROT_SERIAL)
-            conf_set_int(conf, CONF_serspeed, i);
-        else
-            conf_set_int(conf, CONF_port, i);
+        conf_set_int(conf, CONF_port, i);
     }
 }
 
@@ -269,9 +240,7 @@ struct hostport {
 /*
  * Shared handler for protocol radio-button and drop-list controls.
  * Handles the interaction of those two controls, and also changes
- * the setting of the port box to match the protocol if necessary,
- * and refreshes both host and port boxes when switching to/from the
- * serial backend.
+ * the setting of the port box to match the protocol if necessary.
  */
 static void config_protocols_handler(dlgcontrol *ctrl, dlgparam *dlg,
                                      void *data, int event)
@@ -1611,114 +1580,6 @@ static void clipboard_control(struct controlset *s, const char *label,
 #endif
 }
 
-static void serial_parity_handler(dlgcontrol *ctrl, dlgparam *dlg,
-                                  void *data, int event)
-{
-    static const struct {
-        const char *name;
-        int val;
-    } parities[] = {
-        {"None", SER_PAR_NONE},
-        {"Odd", SER_PAR_ODD},
-        {"Even", SER_PAR_EVEN},
-        {"Mark", SER_PAR_MARK},
-        {"Space", SER_PAR_SPACE},
-    };
-    int mask = ctrl->context.i;
-    int i, j;
-    Conf *conf = (Conf *)data;
-
-    if (event == EVENT_REFRESH) {
-        /* Fetching this once at the start of the function ensures we
-         * remember what the right value is supposed to be when
-         * operations below cause reentrant calls to this function. */
-        int oldparity = conf_get_int(conf, CONF_serparity);
-
-        dlg_update_start(ctrl, dlg);
-        dlg_listbox_clear(ctrl, dlg);
-        for (i = 0; i < lenof(parities); i++)  {
-            if (mask & (1 << parities[i].val))
-                dlg_listbox_addwithid(ctrl, dlg, parities[i].name,
-                                      parities[i].val);
-        }
-        for (i = j = 0; i < lenof(parities); i++) {
-            if (mask & (1 << parities[i].val)) {
-                if (oldparity == parities[i].val) {
-                    dlg_listbox_select(ctrl, dlg, j);
-                    break;
-                }
-                j++;
-            }
-        }
-        if (i == lenof(parities)) {    /* an unsupported setting was chosen */
-            dlg_listbox_select(ctrl, dlg, 0);
-            oldparity = SER_PAR_NONE;
-        }
-        dlg_update_done(ctrl, dlg);
-        conf_set_int(conf, CONF_serparity, oldparity);    /* restore */
-    } else if (event == EVENT_SELCHANGE) {
-        int i = dlg_listbox_index(ctrl, dlg);
-        if (i < 0)
-            i = SER_PAR_NONE;
-        else
-            i = dlg_listbox_getid(ctrl, dlg, i);
-        conf_set_int(conf, CONF_serparity, i);
-    }
-}
-
-static void serial_flow_handler(dlgcontrol *ctrl, dlgparam *dlg,
-                                void *data, int event)
-{
-    static const struct {
-        const char *name;
-        int val;
-    } flows[] = {
-        {"None", SER_FLOW_NONE},
-        {"XON/XOFF", SER_FLOW_XONXOFF},
-        {"RTS/CTS", SER_FLOW_RTSCTS},
-        {"DSR/DTR", SER_FLOW_DSRDTR},
-    };
-    int mask = ctrl->context.i;
-    int i, j;
-    Conf *conf = (Conf *)data;
-
-    if (event == EVENT_REFRESH) {
-        /* Fetching this once at the start of the function ensures we
-         * remember what the right value is supposed to be when
-         * operations below cause reentrant calls to this function. */
-        int oldflow = conf_get_int(conf, CONF_serflow);
-
-        dlg_update_start(ctrl, dlg);
-        dlg_listbox_clear(ctrl, dlg);
-        for (i = 0; i < lenof(flows); i++)  {
-            if (mask & (1 << flows[i].val))
-                dlg_listbox_addwithid(ctrl, dlg, flows[i].name, flows[i].val);
-        }
-        for (i = j = 0; i < lenof(flows); i++) {
-            if (mask & (1 << flows[i].val)) {
-                if (oldflow == flows[i].val) {
-                    dlg_listbox_select(ctrl, dlg, j);
-                    break;
-                }
-                j++;
-            }
-        }
-        if (i == lenof(flows)) {       /* an unsupported setting was chosen */
-            dlg_listbox_select(ctrl, dlg, 0);
-            oldflow = SER_FLOW_NONE;
-        }
-        dlg_update_done(ctrl, dlg);
-        conf_set_int(conf, CONF_serflow, oldflow);/* restore */
-    } else if (event == EVENT_SELCHANGE) {
-        int i = dlg_listbox_index(ctrl, dlg);
-        if (i < 0)
-            i = SER_FLOW_NONE;
-        else
-            i = dlg_listbox_getid(ctrl, dlg, i);
-        conf_set_int(conf, CONF_serflow, i);
-    }
-}
-
 void proxy_type_handler(dlgcontrol *ctrl, dlgparam *dlg,
                         void *data, int event)
 {
@@ -1756,7 +1617,16 @@ void proxy_type_handler(dlgcontrol *ctrl, dlgparam *dlg,
         if (ctrl->context.i & PROXY_UI_FLAG_LOCAL) {
             ADD(PROXY_CMD, "Local (run a subprogram to connect)");
         }
-        ADD(PROXY_TELNET, "'Telnet' (send an ad-hoc command)");
+        if (proxy_type == PROXY_TELNET_REMOVED) {
+            /*
+             * Only shown for an old saved session that still selects
+             * the removed 'Telnet' proxy type. Listing it keeps it
+             * selected (connections then fail with a clear error)
+             * rather than letting the refresh silently change the
+             * setting to "None" and bypass the intended proxy.
+             */
+            ADD(PROXY_TELNET_REMOVED, "'Telnet' (no longer supported)");
+        }
 
 #undef ADD
 
@@ -1869,10 +1739,7 @@ void setup_config_box(struct controlbox *b, bool midsession,
             c->radio.buttons[c->radio.nbuttons] =
                 dupstr(backends[i]->displayname_tc);
             c->radio.shortcuts[c->radio.nbuttons] =
-                (backends[i]->protocol == PROT_SSH ? 's' :
-                 backends[i]->protocol == PROT_SERIAL ? 'r' :
-                 backends[i]->protocol == PROT_RAW ? 'w' :  /* FIXME unused */
-                 NO_SHORTCUT);
+                (backends[i]->protocol == PROT_SSH ? 's' : NO_SHORTCUT);
             c->radio.buttondata[c->radio.nbuttons] =
                 I(backends[i]->protocol);
             c->radio.nbuttons++;
@@ -2563,24 +2430,24 @@ void setup_config_box(struct controlbox *b, bool midsession,
             ed = (struct environ_data *)
                 ctrl_alloc(b, sizeof(struct environ_data));
             ed->varbox = ctrl_editbox(s, "Variable", 'v', 60,
-                                      HELPCTX(telnet_environ),
+                                      HELPCTX(data_environ),
                                       environ_handler, P(ed), P(NULL));
             ed->varbox->column = 0;
             ed->valbox = ctrl_editbox(s, "Value", 'l', 60,
-                                      HELPCTX(telnet_environ),
+                                      HELPCTX(data_environ),
                                       environ_handler, P(ed), P(NULL));
             ed->valbox->column = 0;
             ed->addbutton = ctrl_pushbutton(s, "Add", 'd',
-                                            HELPCTX(telnet_environ),
+                                            HELPCTX(data_environ),
                                             environ_handler, P(ed));
             ed->addbutton->column = 1;
             ed->rembutton = ctrl_pushbutton(s, "Remove", 'r',
-                                            HELPCTX(telnet_environ),
+                                            HELPCTX(data_environ),
                                             environ_handler, P(ed));
             ed->rembutton->column = 1;
             ctrl_columns(s, 1, 100);
             ed->listbox = ctrl_listbox(s, NULL, NO_SHORTCUT,
-                                       HELPCTX(telnet_environ),
+                                       HELPCTX(data_environ),
                                        environ_handler, P(ed));
             ed->listbox->listbox.height = 3;
             ed->listbox->listbox.ncols = 2;
@@ -2638,7 +2505,7 @@ void setup_config_box(struct controlbox *b, bool midsession,
                          conf_editbox_handler,
                          I(CONF_proxy_password), ED_STR);
         c->editbox.password = true;
-        ctrl_editbox(s, "Command to send to proxy (for some types)", 'm', 100,
+        ctrl_editbox(s, "Command for proxy (Local and SSH types)", 'm', 100,
                      HELPCTX(proxy_command),
                      conf_editbox_handler,
                      I(CONF_proxy_telnet_command), ED_STR);
@@ -2657,17 +2524,12 @@ void setup_config_box(struct controlbox *b, bool midsession,
      * Each per-protocol configuration GUI panel is conditionally
      * displayed. We don't display it if this binary doesn't contain a
      * backend for its protocol at all; we don't display it if we're
-     * already in mid-session with a different protocol selected; and
-     * even if we _do_ have this protocol selected, we don't display
-     * the panel if the protocol doesn't permit any mid-session
-     * reconfiguration anyway.
+     * already in mid-session with a different protocol selected.
      */
 
 #define DISPLAY_RECONFIGURABLE_PROTOCOL(which_proto) \
     (backend_vt_from_proto(which_proto) && \
      (!midsession || protocol == (which_proto)))
-#define DISPLAY_NON_RECONFIGURABLE_PROTOCOL(which_proto) \
-    (backend_vt_from_proto(which_proto) && !midsession)
 
     if (DISPLAY_RECONFIGURABLE_PROTOCOL(PROT_SSH) ||
         DISPLAY_RECONFIGURABLE_PROTOCOL(PROT_SSHCONN)) {
@@ -3222,134 +3084,5 @@ void setup_config_box(struct controlbox *b, bool midsession,
                           HELPCTX(ssh_bugs_rsa1),
                           sshbug_handler, I(CONF_sshbug_rsa1));
         }
-    }
-
-    if (DISPLAY_RECONFIGURABLE_PROTOCOL(PROT_SERIAL)) {
-        const BackendVtable *ser_vt = backend_vt_from_proto(PROT_SERIAL);
-
-        /*
-         * The Connection/Serial panel.
-         */
-        ctrl_settitle(b, "Connection/Serial",
-                      "Options controlling local serial lines");
-
-        if (!midsession) {
-            /*
-             * We don't permit switching to a different serial port in
-             * midflight, although we do allow all other
-             * reconfiguration.
-             */
-            s = ctrl_getset(b, "Connection/Serial", "serline",
-                            "Select a serial line");
-            ctrl_editbox(s, "Serial line to connect to", 'l', 40,
-                         HELPCTX(serial_line),
-                         conf_editbox_handler, I(CONF_serline), ED_STR);
-        }
-
-        s = ctrl_getset(b, "Connection/Serial", "sercfg", "Configure the serial line");
-        ctrl_editbox(s, "Speed (baud)", 's', 40,
-                     HELPCTX(serial_speed),
-                     conf_editbox_handler, I(CONF_serspeed), ED_INT);
-        ctrl_editbox(s, "Data bits", 'b', 40,
-                     HELPCTX(serial_databits),
-                     conf_editbox_handler, I(CONF_serdatabits), ED_INT);
-        /*
-         * Stop bits come in units of one half.
-         */
-        static const struct conf_editbox_handler_type conf_editbox_stopbits = {
-            .type = EDIT_FIXEDPOINT, .denominator = 2};
-
-        ctrl_editbox(s, "Stop bits", 't', 40,
-                     HELPCTX(serial_stopbits),
-                     conf_editbox_handler, I(CONF_serstopbits),
-                     CP(&conf_editbox_stopbits));
-        ctrl_droplist(s, "Parity", 'p', 40,
-                      HELPCTX(serial_parity), serial_parity_handler,
-                      I(ser_vt->serial_parity_mask));
-        ctrl_droplist(s, "Flow control", 'f', 40,
-                      HELPCTX(serial_flow), serial_flow_handler,
-                      I(ser_vt->serial_flow_mask));
-    }
-
-    if (DISPLAY_RECONFIGURABLE_PROTOCOL(PROT_TELNET)) {
-        /*
-         * The Connection/Telnet panel.
-         */
-        ctrl_settitle(b, "Connection/Telnet",
-                      "Options controlling Telnet connections");
-
-        s = ctrl_getset(b, "Connection/Telnet", "protocol",
-                        "Telnet protocol adjustments");
-
-        if (!midsession) {
-            ctrl_radiobuttons(s, "Handling of OLD_ENVIRON ambiguity:",
-                              NO_SHORTCUT, 2,
-                              HELPCTX(telnet_oldenviron),
-                              conf_radiobutton_bool_handler,
-                              I(CONF_rfc_environ),
-                              "BSD (commonplace)", 'b', I(false),
-                              "RFC 1408 (unusual)", 'f', I(true));
-            ctrl_radiobuttons(s, "Telnet negotiation mode:", 't', 2,
-                              HELPCTX(telnet_passive),
-                              conf_radiobutton_bool_handler,
-                              I(CONF_passive_telnet),
-                              "Passive", I(true), "Active", I(false));
-        }
-        ctrl_checkbox(s, "Keyboard sends Telnet special commands", 'k',
-                      HELPCTX(telnet_specialkeys),
-                      conf_checkbox_handler,
-                      I(CONF_telnet_keyboard));
-        ctrl_checkbox(s, "Return key sends Telnet New Line instead of ^M",
-                      'm', HELPCTX(telnet_newline),
-                      conf_checkbox_handler,
-                      I(CONF_telnet_newline));
-    }
-
-    if (DISPLAY_NON_RECONFIGURABLE_PROTOCOL(PROT_RLOGIN)) {
-        /*
-         * The Connection/Rlogin panel.
-         */
-        ctrl_settitle(b, "Connection/Rlogin",
-                      "Options controlling Rlogin connections");
-
-        s = ctrl_getset(b, "Connection/Rlogin", "data",
-                        "Data to send to the server");
-        ctrl_editbox(s, "Local username:", 'l', 50,
-                     HELPCTX(rlogin_localuser),
-                     conf_editbox_handler, I(CONF_localusername), ED_STR);
-
-    }
-
-    if (DISPLAY_NON_RECONFIGURABLE_PROTOCOL(PROT_SUPDUP)) {
-        /*
-         * The Connection/SUPDUP panel.
-         */
-        ctrl_settitle(b, "Connection/SUPDUP",
-                      "Options controlling SUPDUP connections");
-
-        s = ctrl_getset(b, "Connection/SUPDUP", "main", NULL);
-
-        ctrl_editbox(s, "Location string", 'l', 70,
-                     HELPCTX(supdup_location),
-                     conf_editbox_handler, I(CONF_supdup_location),
-                     ED_STR);
-
-        ctrl_radiobuttons(s, "Extended ASCII Character set:", 'e', 4,
-                          HELPCTX(supdup_ascii),
-                          conf_radiobutton_handler,
-                          I(CONF_supdup_ascii_set),
-                          "None", I(SUPDUP_CHARSET_ASCII),
-                          "ITS", I(SUPDUP_CHARSET_ITS),
-                          "WAITS", I(SUPDUP_CHARSET_WAITS));
-
-        ctrl_checkbox(s, "**MORE** processing", 'm',
-                      HELPCTX(supdup_more),
-                      conf_checkbox_handler,
-                      I(CONF_supdup_more));
-
-        ctrl_checkbox(s, "Terminal scrolling", 's',
-                      HELPCTX(supdup_scroll),
-                      conf_checkbox_handler,
-                      I(CONF_supdup_scroll));
     }
 }

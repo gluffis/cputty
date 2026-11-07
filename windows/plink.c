@@ -136,8 +136,7 @@ static void usage(void)
     printf("  -pgpfp    print PGP key fingerprints and exit\n");
     printf("  -v        show verbose messages\n");
     printf("  -load sessname  Load settings from saved session\n");
-    printf("  -ssh -telnet -rlogin -raw -serial\n");
-    printf("            force use of a particular protocol\n");
+    printf("  -ssh      force use of the SSH protocol\n");
     printf("  -ssh-connection\n");
     printf("            force use of the bare ssh-connection protocol\n");
     printf("  -P port   connect to specified port\n");
@@ -147,8 +146,6 @@ static void usage(void)
     printf("            use 'command' as local proxy\n");
     printf("  -preconnectcommand command\n");
     printf("            run 'command' before making network connection\n");
-    printf("  -sercfg configuration-string (e.g. 19200,8,n,1,X)\n");
-    printf("            Specify the serial configuration (serial only)\n");
     printf("The following options only apply to SSH connections:\n");
     printf("  -pwfile file   login with password read from specified file\n");
     printf("  -D [listen-IP:]listen-port\n");

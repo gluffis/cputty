@@ -247,171 +247,123 @@ int cmdline_process_param(CmdlineArg *arg, CmdlineArg *nextarg,
              * the default session and never be able to do anything
              * else).
              */
-            if (!strncmp(p, "telnet:", 7)) {
+            char *user = NULL, *hostname = NULL;
+            const char *hostname_after_user;
+            int port_override = -1;
+            size_t len;
+
+            /*
+             * Treat it as a bare host name.
+             */
+
+            if (cmdline_tooltype & TOOLTYPE_HOST_ARG_PROTOCOL_PREFIX) {
                 /*
-                 * If the argument starts with "telnet:", set the
-                 * protocol to Telnet and process the string as a
-                 * Telnet URL.
+                 * Here Plink checks for a comma-separated
+                 * protocol prefix, e.g. 'ssh,hostname' or
+                 * 'ssh,user@hostname'.
+                 *
+                 * I'm not entirely sure why; this behaviour dates
+                 * from 2000 and isn't explained. But I _think_ it
+                 * has to do with CVS transport or similar use
+                 * cases, in which the end user invokes the SSH
+                 * client indirectly, via some means that only
+                 * lets them pass a single string argument, and it
+                 * was occasionally useful to shoehorn the choice
+                 * of protocol into that argument.
                  */
+                const char *comma = strchr(p, ',');
+                if (comma) {
+                    char *prefix = dupprintf("%.*s", (int)(comma - p), p);
+                    const struct BackendVtable *vt =
+                        backend_vt_from_name(prefix);
 
-                /*
-                 * Skip the "telnet:" or "telnet://" prefix.
-                 */
-                p += 7;
-                if (p[0] == '/' && p[1] == '/')
-                    p += 2;
-                conf_set_int(conf, CONF_protocol, PROT_TELNET);
-
-                /*
-                 * The next thing we expect is a host name.
-                 */
-                {
-                    const char *host = p;
-                    char *buf;
-
-                    p += host_strcspn(p, ":/");
-                    buf = dupprintf("%.*s", (int)(p - host), host);
-                    conf_set_str(conf, CONF_host, buf);
-                    sfree(buf);
-                    seen_hostname_argument = true;
-                }
-
-                /*
-                 * If the host name is followed by a colon, then
-                 * expect a port number after it.
-                 */
-                if (*p == ':') {
-                    p++;
-
-                    conf_set_int(conf, CONF_port, atoi(p));
-                    /*
-                     * Set the flag that will stop us from treating
-                     * the next argument as a separate port; this one
-                     * counts as explicitly provided.
-                     */
-                    seen_port_argument = true;
-                } else {
-                    conf_set_int(conf, CONF_port, -1);
-                }
-            } else {
-                char *user = NULL, *hostname = NULL;
-                const char *hostname_after_user;
-                int port_override = -1;
-                size_t len;
-
-                /*
-                 * Otherwise, treat it as a bare host name.
-                 */
-
-                if (cmdline_tooltype & TOOLTYPE_HOST_ARG_PROTOCOL_PREFIX) {
-                    /*
-                     * Here Plink checks for a comma-separated
-                     * protocol prefix, e.g. 'ssh,hostname' or
-                     * 'ssh,user@hostname'.
-                     *
-                     * I'm not entirely sure why; this behaviour dates
-                     * from 2000 and isn't explained. But I _think_ it
-                     * has to do with CVS transport or similar use
-                     * cases, in which the end user invokes the SSH
-                     * client indirectly, via some means that only
-                     * lets them pass a single string argument, and it
-                     * was occasionally useful to shoehorn the choice
-                     * of protocol into that argument.
-                     */
-                    const char *comma = strchr(p, ',');
-                    if (comma) {
-                        char *prefix = dupprintf("%.*s", (int)(comma - p), p);
-                        const struct BackendVtable *vt =
-                            backend_vt_from_name(prefix);
-
-                        if (vt) {
-                            set_protocol(conf, vt->protocol);
-                            port_override = vt->default_port;
-                        } else {
-                            cmdline_error("unrecognised protocol prefix '%s'",
-                                          prefix);
-                        }
-
-                        sfree(prefix);
-                        p = comma + 1;
+                    if (vt) {
+                        set_protocol(conf, vt->protocol);
+                        port_override = vt->default_port;
+                    } else {
+                        cmdline_error("unrecognised protocol prefix '%s'",
+                                      prefix);
                     }
+
+                    sfree(prefix);
+                    p = comma + 1;
                 }
-
-                hostname_after_user = p;
-                if (cmdline_tooltype & TOOLTYPE_HOST_ARG_CAN_BE_SESSION) {
-                    /*
-                     * If the hostname argument can also be a saved
-                     * session (see below), then here we also check
-                     * for a user@ prefix, which will override the
-                     * username from the saved session.
-                     *
-                     * (If the hostname argument _isn't_ a saved
-                     * session, we don't do this.)
-                     */
-                    const char *at = strrchr(p, '@');
-                    if (at) {
-                        user = dupprintf("%.*s", (int)(at - p), p);
-                        hostname_after_user = at + 1;
-                    }
-                }
-
-                /*
-                 * Write the whole hostname argument (minus only that
-                 * optional protocol prefix) into the existing Conf,
-                 * for tools that don't treat it as a saved session
-                 * and as a fallback for those that do.
-                 */
-                hostname = dupstr(p + strspn(p, " \t"));
-                len = strlen(hostname);
-                while (len > 0 && (hostname[len-1] == ' ' ||
-                                   hostname[len-1] == '\t'))
-                    hostname[--len] = '\0';
-                seen_hostname_argument = true;
-                conf_set_str(conf, CONF_host, hostname);
-
-                if ((cmdline_tooltype & TOOLTYPE_HOST_ARG_CAN_BE_SESSION) &&
-                    !loaded_session) {
-                    /*
-                     * For some tools, we equivocate between a
-                     * hostname argument and an argument naming a
-                     * saved session. Here we attempt to load a
-                     * session with the specified name, and if that
-                     * session exists and is launchable, we overwrite
-                     * the entire Conf with it.
-                     *
-                     * We skip this check if a -load option has
-                     * already happened, so that
-                     *
-                     *   plink -load non-launchable-session hostname
-                     *
-                     * will treat 'hostname' as a hostname _even_ if a
-                     * saved session called 'hostname' exists. (This
-                     * doesn't lose any functionality someone could
-                     * have needed, because if 'hostname' did cause a
-                     * session to be loaded, then it would overwrite
-                     * everything from the previously loaded session.
-                     * So if that was the behaviour someone wanted,
-                     * then they could get it by leaving off the
-                     * -load completely.)
-                     */
-                    Conf *conf2 = conf_new();
-                    if (do_defaults(hostname_after_user, conf2) &&
-                        conf_launchable(conf2)) {
-                        conf_copy_into(conf, conf2);
-                        loaded_session = true;
-                        /* And override the username if one was given. */
-                        if (user)
-                            conf_set_str(conf, CONF_username, user);
-                    }
-                    conf_free(conf2);
-                }
-
-                sfree(hostname);
-                sfree(user);
-
-                if (port_override >= 0)
-                    conf_set_int(conf, CONF_port, port_override);
             }
+
+            hostname_after_user = p;
+            if (cmdline_tooltype & TOOLTYPE_HOST_ARG_CAN_BE_SESSION) {
+                /*
+                 * If the hostname argument can also be a saved
+                 * session (see below), then here we also check
+                 * for a user@ prefix, which will override the
+                 * username from the saved session.
+                 *
+                 * (If the hostname argument _isn't_ a saved
+                 * session, we don't do this.)
+                 */
+                const char *at = strrchr(p, '@');
+                if (at) {
+                    user = dupprintf("%.*s", (int)(at - p), p);
+                    hostname_after_user = at + 1;
+                }
+            }
+
+            /*
+             * Write the whole hostname argument (minus only that
+             * optional protocol prefix) into the existing Conf,
+             * for tools that don't treat it as a saved session
+             * and as a fallback for those that do.
+             */
+            hostname = dupstr(p + strspn(p, " \t"));
+            len = strlen(hostname);
+            while (len > 0 && (hostname[len-1] == ' ' ||
+                               hostname[len-1] == '\t'))
+                hostname[--len] = '\0';
+            seen_hostname_argument = true;
+            conf_set_str(conf, CONF_host, hostname);
+
+            if ((cmdline_tooltype & TOOLTYPE_HOST_ARG_CAN_BE_SESSION) &&
+                !loaded_session) {
+                /*
+                 * For some tools, we equivocate between a
+                 * hostname argument and an argument naming a
+                 * saved session. Here we attempt to load a
+                 * session with the specified name, and if that
+                 * session exists and is launchable, we overwrite
+                 * the entire Conf with it.
+                 *
+                 * We skip this check if a -load option has
+                 * already happened, so that
+                 *
+                 *   plink -load non-launchable-session hostname
+                 *
+                 * will treat 'hostname' as a hostname _even_ if a
+                 * saved session called 'hostname' exists. (This
+                 * doesn't lose any functionality someone could
+                 * have needed, because if 'hostname' did cause a
+                 * session to be loaded, then it would overwrite
+                 * everything from the previously loaded session.
+                 * So if that was the behaviour someone wanted,
+                 * then they could get it by leaving off the
+                 * -load completely.)
+                 */
+                Conf *conf2 = conf_new();
+                if (do_defaults(hostname_after_user, conf2) &&
+                    conf_launchable(conf2)) {
+                    conf_copy_into(conf, conf2);
+                    loaded_session = true;
+                    /* And override the username if one was given. */
+                    if (user)
+                        conf_set_str(conf, CONF_username, user);
+                }
+                conf_free(conf2);
+            }
+
+            sfree(hostname);
+            sfree(user);
+
+            if (port_override >= 0)
+                conf_set_int(conf, CONF_port, port_override);
 
             return 1;
         } else if ((cmdline_tooltype & TOOLTYPE_PORT_ARG) &&
@@ -456,13 +408,6 @@ int cmdline_process_param(CmdlineArg *arg, CmdlineArg *nextarg,
             set_protocol(conf, backends[i]->protocol);
             if (backends[i]->default_port)
                 set_port(conf, backends[i]->default_port);
-            if (backends[i]->protocol == PROT_SERIAL) {
-                /* Special handling: the 'where to connect to' argument will
-                 * have been placed into CONF_host, but for this protocol, it
-                 * needs to be in CONF_serline */
-                conf_set_str(conf, CONF_serline,
-                             conf_get_str(conf, CONF_host));
-            }
             return 1;
         }
     }
@@ -803,92 +748,6 @@ int cmdline_process_param(CmdlineArg *arg, CmdlineArg *nextarg,
         SAVEABLE(1);
         conf_set_int(conf, CONF_addressfamily, ADDRTYPE_IPV6);
     }
-    if (!strcmp(p, "-sercfg")) {
-        const char *nextitem;
-        RETURN(2);
-        UNAVAILABLE_IN(TOOLTYPE_FILETRANSFER | TOOLTYPE_NONNETWORK);
-        SAVEABLE(1);
-        if (conf_get_int(conf, CONF_protocol) != PROT_SERIAL)
-            cmdline_error("the -sercfg option can only be used with the "
-                          "serial protocol");
-        /* Value[0] contains one or more , separated values, like 19200,8,n,1,X */
-        nextitem = value;
-        while (nextitem[0] != '\0') {
-            int length, skip;
-            char *end = strchr(nextitem, ',');
-            if (!end) {
-                length = strlen(nextitem);
-                skip = 0;
-            } else {
-                length = end - nextitem;
-                skip = 1;
-            }
-            if (length == 1) {
-                switch (*nextitem) {
-                  case '1':
-                  case '2':
-                    conf_set_int(conf, CONF_serstopbits, 2 * (*nextitem-'0'));
-                    break;
-
-                  case '5':
-                  case '6':
-                  case '7':
-                  case '8':
-                  case '9':
-                    conf_set_int(conf, CONF_serdatabits, *nextitem-'0');
-                    break;
-
-                  case 'n':
-                    conf_set_int(conf, CONF_serparity, SER_PAR_NONE);
-                    break;
-                  case 'o':
-                    conf_set_int(conf, CONF_serparity, SER_PAR_ODD);
-                    break;
-                  case 'e':
-                    conf_set_int(conf, CONF_serparity, SER_PAR_EVEN);
-                    break;
-                  case 'm':
-                    conf_set_int(conf, CONF_serparity, SER_PAR_MARK);
-                    break;
-                  case 's':
-                    conf_set_int(conf, CONF_serparity, SER_PAR_SPACE);
-                    break;
-
-                  case 'N':
-                    conf_set_int(conf, CONF_serflow, SER_FLOW_NONE);
-                    break;
-                  case 'X':
-                    conf_set_int(conf, CONF_serflow, SER_FLOW_XONXOFF);
-                    break;
-                  case 'R':
-                    conf_set_int(conf, CONF_serflow, SER_FLOW_RTSCTS);
-                    break;
-                  case 'D':
-                    conf_set_int(conf, CONF_serflow, SER_FLOW_DSRDTR);
-                    break;
-
-                  default:
-                    cmdline_error("Unrecognised suboption \"-sercfg %c\"",
-                                  *nextitem);
-                }
-            } else if (length == 3 && !strncmp(nextitem,"1.5",3)) {
-                /* Messy special case */
-                conf_set_int(conf, CONF_serstopbits, 3);
-            } else {
-                char *speedstr = dupprintf("%.*s", length, nextitem);
-                int serspeed = atoi(speedstr);
-                sfree(speedstr);
-                if (serspeed != 0) {
-                    conf_set_int(conf, CONF_serspeed, serspeed);
-                } else {
-                    cmdline_error("Unrecognised suboption \"-sercfg %s\"",
-                                  nextitem);
-                }
-            }
-            nextitem += length + skip;
-        }
-    }
-
     if (!strcmp(p, "-sessionlog")) {
         RETURN(2);
         UNAVAILABLE_IN(TOOLTYPE_FILETRANSFER);

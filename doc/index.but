@@ -46,20 +46,6 @@
 \IM{different usernames}{changes of username} login names, different
 \IM{different usernames}{changes of username} account names, different
 
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} differences between
-SSH, Telnet, Rlogin, and SUPDUP
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} protocols,
-differences between
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} SSH, differences
-from other protocols
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} Telnet, differences
-from other protocols
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} Rlogin, differences
-from other protocols
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} SUPDUP, differences
-from other protocols
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} selecting a protocol
-\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} choosing a protocol
 
 \IM{MUD}{MUDs} MUDs
 
@@ -127,8 +113,6 @@ from other protocols
 \IM{Event Log} PuTTY Event Log
 \IM{Event Log} Log, Event
 
-\IM{Telnet special commands} Telnet special commands
-\IM{Telnet special commands} special commands, in Telnet
 
 \IM{SSH special commands} SSH special commands
 \IM{SSH special commands} special commands, in SSH
@@ -163,15 +147,10 @@ from other protocols
 \IM{dynamic port forwarding} dynamic port forwarding
 \IM{dynamic port forwarding} SOCKS port forwarding
 
-\IM{debugging Internet protocols} debugging Internet protocols
-\IM{debugging Internet protocols} Internet protocols, debugging
-\IM{debugging Internet protocols} protocols, debugging
 
 \IM{Internet protocol version} Internet Protocol version
 \IM{Internet protocol version} version, of Internet Protocol
 
-\IM{raw TCP connections} raw TCP connections
-\IM{raw TCP connections} TCP connections, raw
 
 \IM{command-line arguments} command-line arguments
 \IM{command-line arguments} arguments, command-line
@@ -181,8 +160,6 @@ from other protocols
 \IM{Windows shortcut} Windows shortcut
 \IM{Windows shortcut} shortcut, Windows
 
-\IM{telnet URLs} Telnet URLs
-\IM{telnet URLs} URLs, Telnet
 
 \IM{saved sessions, loading from command line} saved sessions,
 loading from command line
@@ -231,13 +208,8 @@ saved sessions from
 \IM{QUIT special character} \cw{QUIT}, special character
 \IM{QUIT special character} \cw{VQUIT}, special character
 
-\IM{\-telnet} \c{\-telnet} command-line option
-\IM{\-raw} \c{\-raw} command-line option
-\IM{\-rlogin} \c{\-rlogin} command-line option
-\IM{\-supdup} \c{\-supdup} command-line option
 \IM{\-ssh} \c{\-ssh} command-line option
 \IM{\-ssh\-connection} \c{\-ssh\-connection} command-line option
-\IM{\-serial} \c{\-serial} command-line option
 \IM{\-cleanup} \c{\-cleanup} command-line option
 \IM{\-load} \c{\-load} command-line option
 \IM{\-v} \c{\-v} command-line option
@@ -263,7 +235,6 @@ saved sessions from
 \IM{\-6} \c{\-6} command-line option
 \IM{\-i} \c{\-i} command-line option
 \IM{\-pgpfp} \c{\-pgpfp} command-line option
-\IM{\-sercfg} \c{\-sercfg} command-line option
 \IM{\-share} \c{\-share} command-line option
 \IM{\-noshare} \c{\-noshare} command-line option
 \IM{\-agent} \c{\-agent} command-line option
@@ -613,10 +584,6 @@ saved sessions from
 \IM{SOCKS server} server, SOCKS
 \IM{SOCKS server} proxy, SOCKS
 
-\IM{Telnet proxy} Telnet proxy
-\IM{Telnet proxy} TCP proxy
-\IM{Telnet proxy} ad-hoc proxy
-\IM{Telnet proxy} proxy, Telnet
 
 \IM{Local proxy} local proxy
 \IM{Local proxy} proxy command
@@ -648,9 +615,6 @@ saved sessions from
 \IM{plaintext password} plain text password
 \IM{plaintext password} password, plain text
 
-\IM{Telnet negotiation} Telnet option negotiation
-\IM{Telnet negotiation} option negotiation, Telnet
-\IM{Telnet negotiation} negotiation, of Telnet options
 
 \IM{firewall}{firewalls} firewalls
 
@@ -659,11 +623,7 @@ saved sessions from
 \IM{NAT router}{NAT} Network Address Translation
 \IM{NAT router}{NAT} IP masquerading
 
-\IM{Telnet New Line} Telnet New Line
-\IM{Telnet New Line} new line, in Telnet
 
-\IM{.rhosts} \c{.rhosts} file
-\IM{.rhosts} \q{rhosts} file
 
 \IM{passwordless login} passwordless login
 \IM{passwordless login} login, passwordless
@@ -673,10 +633,6 @@ saved sessions from
 \IM{Windows user name} login name, local, in Windows
 \IM{Windows user name} account name, local, in Windows
 
-\IM{local username in Rlogin} local user name, in Rlogin
-\IM{local username in Rlogin} user name, local, in Rlogin
-\IM{local username in Rlogin} login name, local, in Rlogin
-\IM{local username in Rlogin} account name, local, in Rlogin
 
 \IM{privileged port} privileged port
 \IM{privileged port} low-numbered port

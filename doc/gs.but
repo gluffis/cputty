@@ -17,25 +17,15 @@ In the \q{Host Name} box, enter the Internet \i{host name} of the server
 you want to connect to. You should have been told this by the
 provider of your login account.
 
-Now select a login \i{protocol} to use, from the \q{Connection type}
-controls. For a login session, you should select \i{SSH}, \i{Telnet},
-\i{Rlogin}, or \i{SUPDUP}. See \k{which-one} for a description of the
-differences between these protocols, and advice on which one to
-use. The \I{raw protocol}\e{Raw} protocol is not used for interactive
-login sessions; you would usually use this for debugging other Internet
-services (see \k{using-rawprot}). The \e{Serial} option is used for
-connecting to a local serial line, and works somewhat differently:
-see \k{using-serial} for more information on this.
+The \q{Connection type} controls select the login \i{protocol}. For a
+login session, leave this set to \i{SSH}, which is the only remote
+login protocol this version of PuTTY supports (see \k{which-one}).
 \#{FIXME: describe bare ssh-connection}
 
-When you change the selected protocol, the number in the \q{Port}
-box will change. This is normal: it happens because the various
-login services are usually provided on different network ports by
-the server machine. Most servers will use the standard port numbers,
-so you will not need to change the port setting. If your server
-provides login services on a non-standard port, your system
-administrator should have told you which one. (For example, many
-\i{MUDs} run Telnet service on a port other than 23.)
+Most SSH servers use the standard port number 22, so you will not
+need to change the \q{Port} setting. If your server provides SSH on
+a non-standard port, your system administrator should have told you
+which one.
 
 Once you have filled in the \q{Host Name}, \q{Connection type}, and
 possibly \q{Port} settings, you are ready to connect. Press the

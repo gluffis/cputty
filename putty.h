@@ -413,8 +413,14 @@ enum {
      * Proxy types.
      */
     PROXY_NONE, PROXY_SOCKS4, PROXY_SOCKS5,
-    PROXY_HTTP, PROXY_TELNET, PROXY_CMD, PROXY_SSH_TCPIP,
+    PROXY_HTTP, PROXY_CMD, PROXY_SSH_TCPIP,
     PROXY_SSH_EXEC, PROXY_SSH_SUBSYSTEM,
+    /*
+     * The 'Telnet' proxy type has been removed. Saved sessions that
+     * still select it load as this value, which refuses to connect,
+     * rather than silently connecting without the intended proxy.
+     */
+    PROXY_TELNET_REMOVED,
     PROXY_FUZZ
 };
 
@@ -433,18 +439,9 @@ enum {
 };
 
 enum {
-    /* SUPDUP character set options */
-    SUPDUP_CHARSET_ASCII, SUPDUP_CHARSET_ITS, SUPDUP_CHARSET_WAITS
-};
-
-enum {
-    /* Protocol back ends. (CONF_protocol) */
-    PROT_RAW, PROT_TELNET, PROT_RLOGIN, PROT_SSH, PROT_SSHCONN,
-    /* PROT_SERIAL is supported on a subset of platforms, but it doesn't
-     * hurt to define it globally. */
-    PROT_SERIAL,
-    /* PROT_SUPDUP is the historical RFC 734 protocol. */
-    PROT_SUPDUP,
+    /* Protocol back ends. (CONF_protocol) Saved sessions store the
+     * protocol by name, so these values need not be stable. */
+    PROT_SSH, PROT_SSHCONN,
     PROTOCOL_LIMIT, /* upper bound on number of protocols */
 };
 
@@ -499,14 +496,6 @@ enum {
     /* these are really bit flags */
     BOLD_STYLE_FONT = 1,
     BOLD_STYLE_COLOUR = 2,
-};
-
-enum {
-    SER_PAR_NONE, SER_PAR_ODD, SER_PAR_EVEN, SER_PAR_MARK, SER_PAR_SPACE
-};
-
-enum {
-    SER_FLOW_NONE, SER_FLOW_XONXOFF, SER_FLOW_RTSCTS, SER_FLOW_DSRDTR
 };
 
 /*
@@ -753,10 +742,6 @@ struct BackendVtable {
     int protocol;
     int default_port;
     unsigned flags;
-
-    /* Only relevant for the serial protocol: bit masks of which
-     * parity and flow control settings are supported. */
-    unsigned serial_parity_mask, serial_flow_mask;
 };
 
 static inline char *backend_init(
@@ -2191,33 +2176,10 @@ extern const struct BackendVtable test_backend;
 void test_backend_provide_output(Backend *be, bufchain *output);
 
 /*
- * Exports from raw.c.
- */
-
-extern const struct BackendVtable raw_backend;
-
-/*
- * Exports from rlogin.c.
- */
-
-extern const struct BackendVtable rlogin_backend;
-
-/*
- * Exports from telnet.c.
- */
-
-extern const struct BackendVtable telnet_backend;
-
-/*
  * Exports from ssh/ssh.c.
  */
 extern const struct BackendVtable ssh_backend;
 extern const struct BackendVtable sshconn_backend;
-
-/*
- * Exports from supdup.c.
- */
-extern const struct BackendVtable supdup_backend;
 
 /*
  * Exports from ldisc.c.

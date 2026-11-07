@@ -398,11 +398,6 @@ Socket *new_unix_listener(SockAddr *listenaddr, Plug *plug);
 } while (0)
 
 /*
- * Exports from serial.c.
- */
-extern const struct BackendVtable serial_backend;
-
-/*
  * peerinfo.c, wrapping getsockopt(SO_PEERCRED).
  */
 bool so_peercred(int fd, int *pid, int *uid, int *gid);

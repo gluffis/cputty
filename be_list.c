@@ -7,7 +7,7 @@
  * directly to the sources list for an application. Instead you call
  * the be_list() function defined in setup.cmake, e.g.
  *
- *    be_list(target-name AppName [SSH] [SERIAL] [OTHERBACKENDS])
+ *    be_list(target-name AppName [SSH])
  *
  * This translates into the following command-line macro definitions
  * used by the code below:
@@ -18,16 +18,11 @@
  *    to persuade cmake to put the right quotes on the command line on
  *    all build platforms.
  *
- *  - The following macros should each be defined to 1 if a given set
- *    of backends should be added to the backends[] list, or 0 if they
- *    should not be:
- *
- *     * SSH: the two SSH backends (SSH proper, and bare-ssh-connection)
- *
- *     * SERIAL: the serial port backend
- *
- *     * OTHERBACKENDS: the non-cryptographic network protocol backends
- *       (Telnet, Rlogin, SUPDUP, Raw)
+ *  - SSH should be defined to 1 if the two SSH backends (SSH proper,
+ *    and bare-ssh-connection) should be added to the backends[] list,
+ *    or 0 if they should not be. These are the only network protocol
+ *    backends: Telnet, Rlogin, SUPDUP, Raw and serial-line support
+ *    have been removed.
  */
 
 #include <stdio.h>
@@ -36,15 +31,12 @@
 const char *const appname = STR(APPNAME);
 
 /*
- * Define the default protocol for the application. This is always a
- * network backend (serial ports come second behind network, in every
- * case). Applications that don't have either (such as pterm) don't
- * need this variable anyway, so just set it to -1.
+ * Define the default protocol for the application. Applications
+ * without SSH (such as pterm) don't need this variable anyway, so
+ * just set it to -1.
  */
 #if SSH
 const int be_default_protocol = PROT_SSH;
-#elif OTHERBACKENDS
-const int be_default_protocol = PROT_TELNET;
 #else
 const int be_default_protocol = -1;
 #endif
@@ -54,34 +46,9 @@ const int be_default_protocol = -1;
  * in the config box.
  */
 const struct BackendVtable *const backends[] = {
-    /*
-     * Start with the most-preferred network-remote-login protocol.
-     * That's SSH if present, otherwise Telnet if present.
-     */
+    /* SSH is the remote-login protocol. */
 #if SSH
     &ssh_backend,
-#elif OTHERBACKENDS
-    &telnet_backend,         /* Telnet at the top if SSH is absent  */
-#endif
-
-    /*
-     * Second on the list is the serial-port backend, if available.
-     */
-#if SERIAL
-    &serial_backend,
-#endif
-
-    /*
-     * After that come the remaining network protocols: Telnet if it
-     * hasn't already appeared above, and Rlogin, SUPDUP and Raw.
-     */
-#if OTHERBACKENDS && SSH
-    &telnet_backend,         /* only if SSH displaced it at the top  */
-#endif
-#if OTHERBACKENDS
-    &rlogin_backend,
-    &supdup_backend,
-    &raw_backend,
 #endif
 
     /*
@@ -102,17 +69,12 @@ const struct BackendVtable *const backends[] = {
  * Number of backends at the start of the above list that should have
  * radio buttons in the config UI.
  *
- * The rule is: the most-preferred network backend, and Serial, each
- * get a radio button if present.
- *
- * The rest will be relegated to a dropdown list.
+ * Only SSH gets a radio button; the rest (bare ssh-connection) are
+ * relegated to a dropdown list.
  */
 const size_t n_ui_backends =
     0
-#if SSH || OTHERBACKENDS
-    + 1
-#endif
-#if SERIAL
+#if SSH
     + 1
 #endif
     ;

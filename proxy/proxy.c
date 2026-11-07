@@ -580,9 +580,12 @@ Socket *new_connection(SockAddr *addr, const char *hostname,
           case PROXY_SOCKS5:
             vt = &socks5_proxy_negotiator_vt;
             break;
-          case PROXY_TELNET:
-            vt = &telnet_proxy_negotiator_vt;
-            break;
+          case PROXY_TELNET_REMOVED:
+            /* Refuse, rather than fall back to connecting directly
+             * and bypassing the proxy the user configured. */
+            ps->error = "Proxy error: the 'Telnet' proxy type is no "
+                "longer supported; choose a different proxy type";
+            return &ps->sock;
           default:
             ps->error = "Proxy error: Unknown proxy method";
             return &ps->sock;
@@ -672,4 +675,12 @@ Socket *new_listener(const char *srcaddr, int port, Plug *plug,
      */
 
     return sk_newlistener(srcaddr, port, plug, local_host_only, addressfamily);
+}
+
+char *format_telnet_command(SockAddr *addr, int port, Conf *conf,
+                            unsigned *flags_out)
+{
+    return format_connection_setup_command(
+        conf_get_str(conf, CONF_proxy_telnet_command),
+        addr, port, conf, flags_out);
 }

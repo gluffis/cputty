@@ -42,7 +42,6 @@ add_library(network STATIC
   proxy/http.c
   proxy/socks4.c
   proxy/socks5.c
-  proxy/telnet.c
   proxy/newmain.c
   proxy/local.c
   proxy/interactor.c)
@@ -135,12 +134,7 @@ target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
 add_executable(plink
   ${platform}/plink.c
   stubs/no-lineedit.c)
-# Note: if we ever port Plink to a platform where we can't implement a
-# serial backend, this be_list command will need to become platform-
-# dependent, so that it only sets the SERIAL option on platforms where
-# that backend exists. For the moment, though, we have serial port
-# backends for both our platforms, so we can do this unconditionally.
-be_list(plink Plink SSH SERIAL OTHERBACKENDS)
+be_list(plink Plink SSH)
 target_link_libraries(plink
   eventloop noterminal console sshclient otherbackends settings network crypto
   utils
@@ -184,7 +178,7 @@ add_executable(test_conf
   stubs/no-timing.c
   proxy/noproxy.c # FIXME: move this to stubs
 )
-be_list(test_conf TestConf SSH SERIAL OTHERBACKENDS)
+be_list(test_conf TestConf SSH)
 target_link_libraries(test_conf sshclient otherbackends settings network crypto utils ${platform_libraries})
 
 foreach(subdir ${platform} ${extra_dirs})

@@ -144,12 +144,10 @@ of your session; that's described in \k{using-logging}.)
 
 \S2{using-specials} \ii{Special commands}
 
-Depending on the protocol used for the current session, there may be
-a submenu of \q{special commands}. These are protocol-specific
-tokens, such as a \q{break} signal, that can be sent down a
-connection in addition to normal data. Their precise effect is usually
-up to the server. Currently only Telnet, SSH, and serial connections
-have special commands.
+During an SSH session, there is a submenu of \q{special commands}.
+These are protocol-specific tokens, such as a \q{break} signal, that
+can be sent down a connection in addition to normal data. Their
+precise effect is usually up to the server.
 
 The \q{break} signal can also be invoked from the keyboard with
 \i{Ctrl-Break}.
@@ -209,56 +207,6 @@ Only available in SSH-2, and only during a session. Sends various
 POSIX signals. Not honoured by all servers.
 }
 
-The following \I{Telnet special commands}special commands are
-available in Telnet:
-
-\b \I{Are You There, Telnet special command}Are You There
-
-\b \I{Break, Telnet special command}Break
-
-\b \I{Synch, Telnet special command}Synch
-
-\b \I{Erase Character, Telnet special command}Erase Character
-
-\lcont{
-PuTTY can also be configured to send this when the Backspace key is
-pressed; see \k{config-telnetkey}.
-}
-
-\b \I{Erase Line, Telnet special command}Erase Line
-
-\b \I{Go Ahead, Telnet special command}Go Ahead
-
-\b \I{No Operation, Telnet special command}No Operation
-
-\lcont{
-Should have no effect.
-}
-
-\b \I{Abort Process, Telnet special command}Abort Process
-
-\b \I{Abort Output, Telnet special command}Abort Output
-
-\b \I{Interrupt Process, Telnet special command}Interrupt Process
-
-\lcont{
-PuTTY can also be configured to send this when Ctrl-C is typed; see
-\k{config-telnetkey}.
-}
-
-\b \I{Suspend Process, Telnet special command}Suspend Process
-
-\lcont{
-PuTTY can also be configured to send this when Ctrl-Z is typed; see
-\k{config-telnetkey}.
-}
-
-\b \I{End Of Record, Telnet special command}End Of Record
-
-\b \I{End Of File, Telnet special command}End Of File
-
-With a serial connection, the only available special command is
-\I{Break, serial special command}\q{Break}.
 
 \S2{using-newsession} Starting new sessions
 
@@ -292,7 +240,7 @@ keypresses, the colours, and so on.
 Some of the options that are available in the main configuration box
 are not shown in the cut-down Change Settings box. These are usually
 options which don't make sense to change in the middle of a session
-(for example, you can't switch from SSH to Telnet in mid-session).
+(for example, you can't change the host name in mid-session).
 
 You can save the current settings to a saved session for future use
 from this dialog box. See \k{config-saving} for more on saved
@@ -516,124 +464,6 @@ connection made by another copy of PuTTY, you might find the
 which host key it should be expecting. See \k{config-loghost} for
 details of this.
 
-\H{using-serial} Connecting to a local serial line
-
-PuTTY can connect directly to a local serial line as an alternative
-to making a network connection. In this mode, text typed into the
-PuTTY window will be sent straight out of your computer's serial
-port, and data received through that port will be displayed in the
-PuTTY window. You might use this mode, for example, if your serial
-port is connected to another computer which has a serial connection.
-
-To make a connection of this type, simply select \q{Serial} from the
-\q{Connection type} radio buttons on the \q{Session} configuration
-panel (see \k{config-hostname}). The \q{Host Name} and \q{Port}
-boxes will transform into \q{Serial line} and \q{Speed}, allowing
-you to specify which serial line to use (if your computer has more
-than one) and what speed (baud rate) to use when transferring data.
-For further configuration options (data bits, stop bits, parity,
-flow control), you can use the \q{Serial} configuration panel (see
-\k{config-serial}).
-
-After you start up PuTTY in serial mode, you might find that you
-have to make the first move, by sending some data out of the serial
-line in order to notify the device at the other end that someone is
-there for it to talk to. This probably depends on the device. If you
-start up a PuTTY serial session and nothing appears in the window,
-try pressing Return a few times and see if that helps.
-
-A serial line provides no well defined means for one end of the
-connection to notify the other that the connection is finished.
-Therefore, PuTTY in serial mode will remain connected until you
-close the window using the close button.
-
-\H{using-rawprot} Making \i{raw TCP connections}
-
-A lot of \I{debugging Internet protocols}Internet protocols are
-composed of commands and responses in plain text. For example,
-\i{SMTP} (the protocol used to transfer e-mail), \i{NNTP} (the
-protocol used to transfer Usenet news), and \i{HTTP} (the protocol
-used to serve Web pages) all consist of commands in readable plain
-text.
-
-Sometimes it can be useful to connect directly to one of these
-services and speak the protocol \q{by hand}, by typing protocol
-commands and watching the responses. On Unix machines, you can do
-this using the system's \c{telnet} command to connect to the right
-port number. For example, \c{telnet mailserver.example.com 25} might
-enable you to talk directly to the SMTP service running on a mail
-server.
-
-Although the Unix \c{telnet} program provides this functionality,
-the protocol being used is not really Telnet. Really there is no
-actual protocol at all; the bytes sent down the connection are
-exactly the ones you type, and the bytes shown on the screen are
-exactly the ones sent by the server. Unix \c{telnet} will attempt to
-detect or guess whether the service it is talking to is a real
-Telnet service or not; PuTTY prefers to be told for certain.
-
-In order to make a debugging connection to a service of this type,
-select the \I{\q{Raw} protocol}\q{Raw} option from the
-\q{Connection type} controls in the \q{Session} configuration panel
-(it's in the drop-down). (See \k{config-hostname}.) You can then enter
-a host name and a port number, and make the connection.
-
-\H{using-telnet} Connecting using the \i{Telnet} protocol
-
-PuTTY can use the Telnet protocol to connect to a server.
-
-Telnet was perhaps the most popular remote login protocol before SSH
-was introduced. It was general enough to be used by multiple server
-operating systems (Unix and VMS in particular), and supported many
-optional protocol extensions providing extra support for particular
-server features.
-
-Unlike SSH, Telnet runs over an unsecured network connection, so it is
-a very bad idea to use it over the hostile Internet (though it is
-still used to some extent as of 2020).
-
-\H{using-rlogin} Connecting using the \i{Rlogin} protocol
-
-PuTTY can use the Rlogin protocol to connect to a server.
-
-Rlogin was similar to Telnet in concept, but more focused on
-connections between Unix machines. It supported a feature for
-passwordless login, based on use of \q{privileged ports} (ports with
-numbers below 1024, which Unix traditionally does not allow users
-other than \cw{root} to allocate). Ultimately, based on the server
-trusting that the client's IP address was owned by the Unix machine it
-claimed to be, and that that machine would guard its privileged ports
-appropriately.
-
-Like Telnet, Rlogin runs over an unsecured network connection.
-
-\H{using-supdup} Connecting using the \i{SUPDUP} protocol
-
-PuTTY can use the SUPDUP protocol to connect to a server.
-
-SUPDUP is a login protocol used mainly by PDP-10 and Lisp machines
-during the period 1975-1990. Like Telnet and Rlogin, it is unsecured,
-so modern systems almost never support it.
-
-To make a connection of this type, select \q{SUPDUP} from the
-\q{Connection type} radio buttons on the \q{Session} panel (see
-\k{config-hostname}). For further configuration options (character
-set, more processing, scrolling), you can use the \q{SUPDUP}
-configuration panel (see \k{config-supdup}).
-
-In SUPDUP, terminal emulation is more integrated with the network
-protocol than in other protocols such as SSH. The SUPDUP protocol can
-thus only be used with PuTTY proper, not with the command-line tool
-Plink.
-
-The SUPDUP protocol does not support changing the terminal dimensions,
-so this capability is disabled during a SUPDUP session.
-
-SUPDUP provides no well defined means for one end of the connection to
-notify the other that the connection is finished.  Therefore, PuTTY in
-SUPDUP mode will remain connected until you close the window using the
-close button.
-
 \H{using-cmdline} The PuTTY command line
 
 PuTTY can be made to do various things without user intervention by
@@ -642,28 +472,18 @@ window}, or a \i{Windows shortcut}).
 
 \S{using-cmdline-session} Starting a session from the command line
 
-\I\c{\-ssh}\I\c{\-ssh\-connection}\I\c{\-telnet}\I\c{\-rlogin}\I\c{\-supdup}\I\c{\-raw}\I\c{\-serial}These
+\I\c{\-ssh}\I\c{\-ssh\-connection}These
 options allow you to bypass the configuration window and launch
 straight into a session.
 
 To start a connection to a server called \c{host}:
 
-\c putty.exe [-ssh | -ssh-connection | -telnet | -rlogin | -supdup | -raw] [user@]host
+\c putty.exe [-ssh | -ssh-connection] [user@]host
 
 If this syntax is used, settings are taken from the \i{Default Settings}
 (see \k{config-saving}); \c{user} overrides these settings if
 supplied. Also, you can specify a protocol, which will override the
 default protocol (see \k{using-cmdline-protocol}).
-
-For telnet sessions, the following alternative syntax is supported
-(this makes PuTTY suitable for use as a URL handler for \i{telnet
-URLs} in \i{web browsers}):
-
-\c putty.exe telnet://host[:port]/
-
-To start a connection to a serial port, e.g. COM1:
-
-\c putty.exe -serial com1
 
 In order to start an existing saved session called \c{sessionname},
 use the \c{\-load} option (described in \k{using-cmdline-load}).
@@ -714,8 +534,7 @@ must be the very first thing on the command line. This form of the
 option is deprecated.)
 
 \S2{using-cmdline-protocol} Selecting a protocol: \c{\-ssh},
-\c{\-ssh\-connection}, \c{\-telnet}, \c{\-rlogin}, \c{\-supdup},
-\c{\-raw}, \c{\-serial}
+\c{\-ssh\-connection}
 
 To choose which protocol you want to connect with, you can use one
 of these options:
@@ -726,19 +545,9 @@ of these options:
 (This is only useful in specialised circumstances; see \k{config-psusan}
 for more information.)
 
-\b \i\c{\-telnet} selects the Telnet protocol.
-
-\b \i\c{\-rlogin} selects the Rlogin protocol.
-
-\b \i\c{\-supdup} selects the SUPDUP protocol.
-
-\b \i\c{\-raw} selects the raw protocol.
-
-\b \i\c{\-serial} selects a serial connection.
-
-Most of these options are not available in the file transfer tools
-PSCP and PSFTP (which only work with the SSH protocol and the bare
-ssh-connection protocol).
+(The Telnet, Rlogin, SUPDUP, Raw and serial-line protocols, and their
+options \c{\-telnet}, \c{\-rlogin}, \c{\-supdup}, \c{\-raw} and
+\c{\-serial}, have been removed.)
 
 These options are equivalent to the \i{protocol selection} controls
 (\q{Connection type}) in the Session panel of the PuTTY configuration
@@ -821,15 +630,15 @@ PSFTP.
 \S2{using-cmdline-p} \I{-P-upper}\c{\-P}: specify a \i{port number}
 
 The \c{\-P} option is used to specify the port number to connect to. If
-you have a Telnet server running on port 9696 of a machine instead of
-port 23, for example:
+you have an SSH server running on port 2222 of a machine instead of
+port 22, for example:
 
-\c putty -telnet -P 9696 host.name
-\c plink -telnet -P 9696 host.name
+\c putty -P 2222 host.name
+\c plink -P 2222 host.name
 
 (Note that this option is more useful in Plink than in PuTTY,
-because in PuTTY you can write \c{putty -telnet host.name 9696} in
-any case.)
+because in PuTTY you can write \c{putty host.name 2222} in any
+case.)
 
 This option is equivalent to the port number control in the Session
 panel of the PuTTY configuration box (see \k{config-hostname}).
@@ -848,9 +657,7 @@ whole command line (including the password) is likely to show up if
 another user lists the running processes. \c{\-pw} is retained for
 backwards compatibility only; you should use \c{\-pwfile} instead.
 
-Note that these options only work when you are using the SSH protocol.
-Due to fundamental limitations of Telnet, Rlogin, and SUPDUP, these
-protocols do not support automated password authentication.
+These options are used for SSH password authentication.
 
 \S2{using-cmdline-agentauth} \i\c{\-agent} and \i\c{\-noagent}:
 control use of Pageant for authentication
@@ -1070,30 +877,6 @@ more than one key to be accepted.
 This option causes the PuTTY tools not to run as normal, but instead
 to display the fingerprints of the PuTTY PGP Master Keys, in order to
 aid with \i{verifying new versions}. See \k{pgpkeys} for more information.
-
-\S2{using-cmdline-sercfg} \i\c{\-sercfg}: specify serial port
-\i{configuration}
-
-This option specifies the configuration parameters for the serial
-port (baud rate, stop bits etc). Its argument is interpreted as a
-comma-separated list of configuration options, which can be as
-follows:
-
-\b Any single digit from 5 to 9 sets the number of data bits.
-
-\b \cq{1}, \cq{1.5} or \cq{2} sets the number of stop bits.
-
-\b Any other numeric string is interpreted as a baud rate.
-
-\b A single lower-case letter specifies the parity: \cq{n} for none,
-\cq{o} for odd, \cq{e} for even, \cq{m} for mark and \cq{s} for space.
-
-\b A single upper-case letter specifies the flow control: \cq{N} for
-none, \cq{X} for XON/XOFF, \cq{R} for RTS/CTS and \cq{D} for
-DSR/DTR.
-
-For example, \cq{\-sercfg 19200,8,n,1,N} denotes a baud rate of
-19200, 8 data bits, no parity, 1 stop bit and no flow control.
 
 \S2{using-cmdline-sshlog} \i\c{\-sessionlog}, \i\c{\-sshlog},
 \i\c{\-sshrawlog}: enable session logging

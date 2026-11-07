@@ -51,8 +51,6 @@ add_sources_from_current_dir(sshserver
   sftpserver.c procnet.c)
 add_sources_from_current_dir(sftpclient
   sftp.c)
-add_sources_from_current_dir(otherbackends
-  serial.c)
 add_sources_from_current_dir(agent
   agent-client.c)
 
@@ -183,7 +181,7 @@ if(GTK_FOUND)
     putty.c
     main-gtk-simple.c
     ${CMAKE_SOURCE_DIR}/stubs/no-console.c)
-  be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
+  be_list(putty PuTTY SSH)
   target_link_libraries(putty
     guiterminal eventloop sshclient otherbackends settings
     network crypto utils puttyxpms
@@ -202,7 +200,7 @@ if(GTK_FOUND)
       cluster-gtk.c
       ${CMAKE_SOURCE_DIR}/stubs/no-console.c)
     target_compile_definitions(cputty PRIVATE GTK_CLUSTER)
-    be_list(cputty PuTTY SSH SERIAL OTHERBACKENDS)
+    be_list(cputty PuTTY SSH)
     target_link_libraries(cputty
       guiterminal eventloop sshclient otherbackends settings
       network crypto utils puttyxpms
@@ -218,28 +216,12 @@ if(GTK_FOUND)
       main-gtk-application.c
       ${CMAKE_SOURCE_DIR}/stubs/no-cmdline.c
       ${CMAKE_SOURCE_DIR}/stubs/no-console.c)
-    be_list(puttyapp PuTTY SSH SERIAL OTHERBACKENDS)
+    be_list(puttyapp PuTTY SSH)
     target_link_libraries(puttyapp
       guiterminal eventloop sshclient otherbackends settings
       network crypto utils puttyxpms
       ${GTK_LIBRARIES} ${X11_LIBRARIES} ${X11_Xrender_LIB})
   endif()
-
-  add_executable(puttytel
-    putty.c
-    main-gtk-simple.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-console.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-rand.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-dit.c
-    ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
-    ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c)
-  be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
-  target_link_libraries(puttytel
-    guiterminal eventloop otherbackends settings network utils
-    puttyxpms
-    ${GTK_LIBRARIES} ${X11_LIBRARIES} ${X11_Xrender_LIB})
 
   add_executable(test_lineedit
     ${CMAKE_SOURCE_DIR}/test/test_lineedit.c

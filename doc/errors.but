@@ -343,8 +343,8 @@ your server was rejected by the server. Usually this happens because
 the server does not provide the service which PuTTY is trying to
 access.
 
-Check that you are connecting with the correct protocol (SSH, Telnet,
-etc), and check that the port number is correct. If that
+Check that the server runs an SSH service, and check that the port
+number is correct. If that
 fails, consult the administrator of your server.
 
 This error can also be caused by a firewall in between you and the

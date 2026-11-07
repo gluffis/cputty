@@ -60,33 +60,12 @@ CONF_ENUM(ssh_protocol,
     VALUE_OBSOLETE(3, 2),
 )
 
-CONF_ENUM(serparity,
-    VALUE(SER_PAR_NONE, 0),
-    VALUE(SER_PAR_ODD, 1),
-    VALUE(SER_PAR_EVEN, 2),
-    VALUE(SER_PAR_MARK, 3),
-    VALUE(SER_PAR_SPACE, 4),
-)
-
-CONF_ENUM(serflow,
-    VALUE(SER_FLOW_NONE, 0),
-    VALUE(SER_FLOW_XONXOFF, 1),
-    VALUE(SER_FLOW_RTSCTS, 2),
-    VALUE(SER_FLOW_DSRDTR, 3),
-)
-
-CONF_ENUM(supdup_charset,
-    VALUE(SUPDUP_CHARSET_ASCII, 0),
-    VALUE(SUPDUP_CHARSET_ITS, 1),
-    VALUE(SUPDUP_CHARSET_WAITS, 2),
-)
-
 CONF_ENUM(proxy_type,
     VALUE(PROXY_NONE, 0),
     VALUE(PROXY_SOCKS4, 1),
     VALUE(PROXY_SOCKS5, 2),
     VALUE(PROXY_HTTP, 3),
-    VALUE(PROXY_TELNET, 4),
+    VALUE(PROXY_TELNET_REMOVED, 4), /* formerly the 'Telnet' proxy type */
     VALUE(PROXY_CMD, 5),
     VALUE(PROXY_SSH_TCPIP, 6),
     VALUE(PROXY_SSH_EXEC, 7),
@@ -97,7 +76,7 @@ CONF_ENUM(old_proxy_type,
     VALUE(PROXY_NONE, 0),
     VALUE(PROXY_HTTP, 1),
     VALUE(PROXY_SOCKS5, 2), /* really, both SOCKS 4 and 5 */
-    VALUE(PROXY_TELNET, 3),
+    VALUE(PROXY_TELNET_REMOVED, 3), /* formerly the 'Telnet' proxy type */
     VALUE(PROXY_CMD, 4),
 )
 

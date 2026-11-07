@@ -38,7 +38,7 @@ CONF_OPTION(port,
     LOAD_CUSTOM, /* default value depends on the value of CONF_protocol */
 )
 CONF_OPTION(protocol,
-    VALUE_TYPE(INT), /* PROT_SSH, PROT_TELNET etc */
+    VALUE_TYPE(INT), /* PROT_SSH or PROT_SSHCONN */
     LOAD_CUSTOM, SAVE_CUSTOM,
     /*
      * Notionally SAVE_KEYWORD("Protocol"), but saving/loading is handled by
@@ -146,6 +146,8 @@ CONF_OPTION(proxy_password,
     SAVE_KEYWORD("ProxyPassword"),
 )
 CONF_OPTION(proxy_telnet_command,
+    /* Despite the name (kept for saved-session compatibility), this
+     * is now only the command for the Local and SSH proxy types. */
     VALUE_TYPE(STR),
     DEFAULT_STR("connect %host %port\\n"),
     SAVE_KEYWORD("ProxyTelnetCommand"),
@@ -410,7 +412,7 @@ CONF_OPTION(ssh_nc_port, /* port to connect to in `nc' mode */
     NOT_SAVED,
 )
 
-/* Telnet options */
+/* Terminal and environment options sent to the server */
 CONF_OPTION(termtype,
     VALUE_TYPE(STR),
     DEFAULT_STR("xterm"),
@@ -458,79 +460,6 @@ CONF_OPTION(username_from_env,
     DEFAULT_BOOL(false),
     SAVE_KEYWORD("UserNameFromEnvironment"),
 )
-CONF_OPTION(localusername,
-    VALUE_TYPE(STR),
-    DEFAULT_STR(""),
-    SAVE_KEYWORD("LocalUserName"),
-)
-CONF_OPTION(rfc_environ,
-    VALUE_TYPE(BOOL),
-    DEFAULT_BOOL(false),
-    SAVE_KEYWORD("RFCEnviron"),
-)
-CONF_OPTION(passive_telnet,
-    VALUE_TYPE(BOOL),
-    DEFAULT_BOOL(false),
-    SAVE_KEYWORD("PassiveTelnet"),
-)
-
-/* Serial port options */
-CONF_OPTION(serline,
-    VALUE_TYPE(STR),
-    DEFAULT_STR(""),
-    SAVE_KEYWORD("SerialLine"),
-)
-CONF_OPTION(serspeed,
-    VALUE_TYPE(INT),
-    DEFAULT_INT(9600),
-    SAVE_KEYWORD("SerialSpeed"),
-)
-CONF_OPTION(serdatabits,
-    VALUE_TYPE(INT),
-    DEFAULT_INT(8),
-    SAVE_KEYWORD("SerialDataBits"),
-)
-CONF_OPTION(serstopbits,
-    VALUE_TYPE(INT),
-    DEFAULT_INT(2),
-    SAVE_KEYWORD("SerialStopHalfbits"),
-)
-CONF_OPTION(serparity,
-    VALUE_TYPE(INT),
-    DEFAULT_INT(SER_PAR_NONE),
-    SAVE_KEYWORD("SerialParity"),
-    STORAGE_ENUM(serparity),
-)
-CONF_OPTION(serflow,
-    VALUE_TYPE(INT),
-    DEFAULT_INT(SER_FLOW_XONXOFF),
-    SAVE_KEYWORD("SerialFlowControl"),
-    STORAGE_ENUM(serflow),
-)
-
-/* SUPDUP options */
-CONF_OPTION(supdup_location,
-    VALUE_TYPE(STR),
-    DEFAULT_STR("The Internet"),
-    SAVE_KEYWORD("SUPDUPLocation"),
-)
-CONF_OPTION(supdup_ascii_set,
-    VALUE_TYPE(INT),
-    DEFAULT_INT(SUPDUP_CHARSET_ASCII),
-    SAVE_KEYWORD("SUPDUPCharset"),
-    STORAGE_ENUM(supdup_charset),
-)
-CONF_OPTION(supdup_more,
-    VALUE_TYPE(BOOL),
-    DEFAULT_BOOL(false),
-    SAVE_KEYWORD("SUPDUPMoreProcessing"),
-)
-CONF_OPTION(supdup_scroll,
-    VALUE_TYPE(BOOL),
-    DEFAULT_BOOL(false),
-    SAVE_KEYWORD("SUPDUPScrolling"),
-)
-
 /* Keyboard options */
 CONF_OPTION(bksp_is_delete,
     VALUE_TYPE(BOOL),
@@ -620,16 +549,6 @@ CONF_OPTION(nethack_keypad,
     VALUE_TYPE(BOOL),
     DEFAULT_BOOL(false),
     SAVE_KEYWORD("NetHackKeypad"),
-)
-CONF_OPTION(telnet_keyboard,
-    VALUE_TYPE(BOOL),
-    DEFAULT_BOOL(false),
-    SAVE_KEYWORD("TelnetKey"),
-)
-CONF_OPTION(telnet_newline,
-    VALUE_TYPE(BOOL),
-    DEFAULT_BOOL(true),
-    SAVE_KEYWORD("TelnetRet"),
 )
 CONF_OPTION(alt_f4, /* is it special? */
     VALUE_TYPE(BOOL),

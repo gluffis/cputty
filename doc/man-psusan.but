@@ -105,7 +105,7 @@ no opinion, something generic like \cq{dummy} will do.
 
 \b In the \q{Proxy} configuration panel, set the proxy type to
 \q{Local}, and enter the above \cq{docker run} command in the
-\q{Telnet command, or local proxy command} edit box.
+\q{Command for proxy} edit box.
 
 \b In the \q{SSH} configuration panel, you will very likely want to
 turn on connection sharing. (See below.)

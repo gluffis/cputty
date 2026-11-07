@@ -4,7 +4,7 @@
  * A proxy layer, if necessary, wedges itself between the
  * network code and the higher level backend.
  *
- * Supported proxies: HTTP CONNECT, generic telnet, SOCKS 4 & 5
+ * Supported proxies: HTTP CONNECT, SOCKS 4 & 5
  */
 
 #ifndef PUTTY_PROXY_H
@@ -98,7 +98,6 @@ static inline void proxy_negotiator_free(ProxyNegotiator *pn)
 extern const ProxyNegotiatorVT http_proxy_negotiator_vt;
 extern const ProxyNegotiatorVT socks4_proxy_negotiator_vt;
 extern const ProxyNegotiatorVT socks5_proxy_negotiator_vt;
-extern const ProxyNegotiatorVT telnet_proxy_negotiator_vt;
 
 /*
  * Centralised functions to allow ProxyNegotiators to get hold of a
@@ -116,9 +115,9 @@ void proxy_negotiate(ProxySocket *ps);
 
 /*
  * This is a wrapper on format_connection_setup_command which gets the
- * format string from CONF_proxy_telnet_command. Despite the name, it
- * may also be reused by local-command proxies on individual
- * platforms.
+ * format string from CONF_proxy_telnet_command. The name is historical
+ * (from the removed 'Telnet' proxy type): it is used by local-command
+ * and SSH proxies.
  */
 char *format_telnet_command(SockAddr *addr, int port, Conf *conf,
                             unsigned *flags_out);
