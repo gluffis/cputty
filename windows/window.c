@@ -127,6 +127,30 @@ static void conf_cache_data(WinGuiSeat *wgs);
 
 static struct sesslist sesslist;       /* for saved-session menu */
 
+#ifdef PUTTY_CLUSTER
+/*
+ * cputty sends one keystroke from the cluster console to several
+ * sessions, each of which runs it through TranslateKey. The final
+ * step there, ToUnicodeEx, also updates per-thread dead-key state,
+ * so calling it once per session would break dead keys (e.g. ~ on
+ * many European layouts). Instead the first session to translate a
+ * broadcast keystroke does the real call, and the others reuse its
+ * result if their inputs match. See broadcast_aware_ToUnicodeEx.
+ */
+static struct {
+    bool active;          /* a broadcast keystroke is being delivered */
+    bool have_result;
+    UINT vk, scan;
+    BYTE keystate[256];
+    HKL layout;
+    int result;
+    wchar_t chars[4];
+} key_broadcast;
+static int broadcast_aware_ToUnicodeEx(UINT vk, UINT scan,
+                                       const BYTE *keystate, wchar_t *out,
+                                       int outlen, HKL layout);
+#endif
+
 enum MONITOR_DPI_TYPE { MDT_EFFECTIVE_DPI, MDT_ANGULAR_DPI, MDT_RAW_DPI, MDT_DEFAULT };
 DECL_WINDOWS_FUNCTION(static, BOOL, GetMonitorInfoA, (HMONITOR, LPMONITORINFO));
 DECL_WINDOWS_FUNCTION(static, HMONITOR, MonitorFromPoint, (POINT, DWORD));
@@ -442,47 +466,17 @@ char *terminal_window_class_a(void)
 
 HINSTANCE hinst;
 
-int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
+/*
+ * Create one terminal window and start its session, taking ownership
+ * of 'conf'. Ordinary PuTTY calls this once from WinMain; cputty
+ * (PUTTY_CLUSTER) calls it once per session. 'claim_netevents' makes
+ * this window the target for network event messages, which in cputty
+ * is instead the cluster console (so it outlives any one session).
+ */
+static WinGuiSeat *new_session_window(Conf *conf, int show,
+                                      bool claim_netevents)
 {
-    MSG msg;
-    HRESULT hr;
     int guess_width, guess_height;
-
-    dll_hijacking_protection();
-    enable_dit();
-
-    hinst = inst;
-    hprev = prev;
-
-    sk_init();
-
-    init_common_controls();
-
-    /* Set Explicit App User Model Id so that jump lists don't cause
-       PuTTY to hang on to removable media. */
-
-    set_explicit_app_user_model_id();
-
-    /* Ensure a Maximize setting in Explorer doesn't maximise the
-     * config box. */
-    defuse_showwindow();
-
-    init_winver();
-
-    /*
-     * If we're running a version of Windows that doesn't support
-     * WM_MOUSEWHEEL, find out what message number we should be
-     * using instead.
-     */
-    if (osMajorVersion < 4 ||
-        (osMajorVersion == 4 && osPlatformId != VER_PLATFORM_WIN32_NT))
-        wm_mousewheel = RegisterWindowMessage("MSWHEEL_ROLLMSG");
-
-    init_help();
-
-    init_winfuncs();
-
-    setup_gui_timing();
 
     WinGuiSeat *wgs = snew(WinGuiSeat);
     memset(wgs, 0, sizeof(*wgs));
@@ -495,26 +489,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     wgs->caret_x = wgs->caret_y = -1;
     wgs->busy_status = BUSY_NOT;
 
-    wgs->conf = conf_new();
-
-    /*
-     * Initialize COM.
-     */
-    hr = CoInitialize(NULL);
-    if (hr != S_OK && hr != S_FALSE) {
-        char *str = dupprintf("%s Fatal Error", appname);
-        MessageBox(NULL, "Failed to initialize COM subsystem",
-                   str, MB_OK | MB_ICONEXCLAMATION);
-        sfree(str);
-        return 1;
-    }
-
-    /*
-     * Process the command line.
-     * (If the command line doesn't provide enough info to start a
-     * session, this will detour via the config box.)
-     */
-    gui_term_process_cmdline(wgs->conf, cmdline);
+    wgs->conf = conf;
 
     memset(&wgs->ucsdata, 0, sizeof(wgs->ucsdata));
 
@@ -578,7 +553,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         wgs->term_hwnd = CreateWindowExW(
             exwinmode, terminal_window_class_w(), uappname,
             winmode, CW_USEDEFAULT, CW_USEDEFAULT,
-            guess_width, guess_height, NULL, NULL, inst, NULL);
+            guess_width, guess_height, NULL, NULL, hinst, NULL);
 #endif
 
 #if defined LEGACY_WINDOWS || defined TEST_ANSI_WINDOW
@@ -592,7 +567,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             wgs->term_hwnd = CreateWindowExA(
                 exwinmode, terminal_window_class_a(), appname,
                 winmode, CW_USEDEFAULT, CW_USEDEFAULT,
-                guess_width, guess_height, NULL, NULL, inst, NULL);
+                guess_width, guess_height, NULL, NULL, hinst, NULL);
         }
 #endif
 
@@ -784,7 +759,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         lp_eventlog(&wgs->logpolicy, "Running with restricted process ACL");
     }
 
-    winselgui_set_hwnd(wgs->term_hwnd);
+    if (claim_netevents)
+        winselgui_set_hwnd(wgs->term_hwnd);
     start_backend(wgs);
 
     /*
@@ -802,6 +778,87 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     UpdateWindow(wgs->term_hwnd);
 
     gui_terminal_ready(wgs->term_hwnd, &wgs->seat, wgs->backend);
+
+    return wgs;
+}
+
+#ifdef PUTTY_CLUSTER
+WinGuiSeat *win_new_session_window(Conf *conf, int show)
+{
+    return new_session_window(conf, show, false);
+}
+#endif
+
+int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
+{
+    MSG msg;
+    HRESULT hr;
+
+    dll_hijacking_protection();
+    enable_dit();
+
+    hinst = inst;
+    hprev = prev;
+
+    sk_init();
+
+    init_common_controls();
+
+    /* Set Explicit App User Model Id so that jump lists don't cause
+       PuTTY to hang on to removable media. */
+
+    set_explicit_app_user_model_id();
+
+    /* Ensure a Maximize setting in Explorer doesn't maximise the
+     * config box. */
+    defuse_showwindow();
+
+    init_winver();
+
+    /*
+     * If we're running a version of Windows that doesn't support
+     * WM_MOUSEWHEEL, find out what message number we should be
+     * using instead.
+     */
+    if (osMajorVersion < 4 ||
+        (osMajorVersion == 4 && osPlatformId != VER_PLATFORM_WIN32_NT))
+        wm_mousewheel = RegisterWindowMessage("MSWHEEL_ROLLMSG");
+
+    init_help();
+
+    init_winfuncs();
+
+    setup_gui_timing();
+
+
+    /*
+     * Initialize COM.
+     */
+    hr = CoInitialize(NULL);
+    if (hr != S_OK && hr != S_FALSE) {
+        char *str = dupprintf("%s Fatal Error", appname);
+        MessageBox(NULL, "Failed to initialize COM subsystem",
+                   str, MB_OK | MB_ICONEXCLAMATION);
+        sfree(str);
+        return 1;
+    }
+
+#ifdef PUTTY_CLUSTER
+    /* cputty: creates the console and one session window per host */
+    cluster_setup(cmdline, show);
+#else
+    {
+        Conf *conf = conf_new();
+
+        /*
+         * Process the command line.
+         * (If the command line doesn't provide enough info to start a
+         * session, this will detour via the config box.)
+         */
+        gui_term_process_cmdline(conf, cmdline);
+        new_session_window(conf, show, true);
+    }
+#endif
 
     while (1) {
         int n;
@@ -830,7 +887,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         } else {
             timeout = INFINITE;
             /* The messages seem unreliable; especially if we're being tricky */
-            term_set_focus(wgs->term, GetForegroundWindow() == wgs->term_hwnd);
+            HWND fg = GetForegroundWindow();
+            for (struct WinGuiSeatListNode *n = wgslisthead.next;
+                 n != &wgslisthead; n = n->next) {
+                WinGuiSeat *wgs = container_of(n, WinGuiSeat, wgslistnode);
+                term_set_focus(wgs->term, fg == wgs->term_hwnd);
+            }
         }
 
         HandleWaitList *hwl = get_handle_wait_list();
@@ -845,6 +907,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         while (sw_PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT)
                 goto finished;         /* two-level break */
+
+#ifdef PUTTY_CLUSTER
+            if (cluster_filter_message(&msg))
+                break;                 /* consumed: counts as non-NETEVENT */
+#endif
 
             HWND logbox = event_log_window();
             if (!(IsWindow(logbox) && IsDialogMessage(logbox, &msg)))
@@ -890,6 +957,81 @@ static void wgs_cleanup(WinGuiSeat *wgs)
     wgs_unlink(wgs);
     sfree(wgs);
 }
+
+#ifdef PUTTY_CLUSTER
+/*
+ * Free everything belonging to one session, for cputty, where other
+ * sessions carry on running. (Ordinary PuTTY only ever frees a
+ * session on process exit, so wgs_cleanup does just the minimum.)
+ * Called from WM_DESTROY, so the window itself is going away already.
+ */
+void win_free_session(WinGuiSeat *wgs)
+{
+    /* Nothing queued against this session may run after it's gone */
+    delete_callbacks_for_context(wgs);
+    expire_timer_context(wgs);
+
+    if (wgs->ldisc) {
+        ldisc_free(wgs->ldisc);
+        wgs->ldisc = NULL;
+    }
+    if (wgs->backend) {
+        backend_free(wgs->backend);
+        wgs->backend = NULL;
+    }
+    if (wgs->term) {
+        term_free(wgs->term);
+        wgs->term = NULL;
+    }
+    if (wgs->logctx) {
+        log_free(wgs->logctx);
+        wgs->logctx = NULL;
+    }
+
+    /*
+     * The context menu is ours to destroy. Its submenus (Saved
+     * Sessions, Special Commands) are shared with the window's system
+     * menu, which Windows destroys along with the window, so detach
+     * them first rather than destroying them twice.
+     */
+    HMENU ctx = wgs->popup_menus[CTXMENU].menu;
+    if (ctx) {
+        while (GetMenuItemCount(ctx) > 0)
+            RemoveMenu(ctx, 0, MF_BYPOSITION);
+        DestroyMenu(ctx);
+        wgs->popup_menus[CTXMENU].menu = NULL;
+    }
+
+    if (wgs->caretbm)
+        DeleteObject(wgs->caretbm);
+    sfree(wgs->window_name);
+    sfree(wgs->icon_name);
+    if (wgs->conf)
+        conf_free(wgs->conf);
+
+    wgs_cleanup(wgs);
+}
+
+void win_broadcast_key_begin(void)
+{
+    key_broadcast.active = true;
+    key_broadcast.have_result = false;
+}
+
+/* Returns the characters the broadcast keystroke translated to (if any
+ * session got as far as translating it), for the console's echo. */
+int win_broadcast_key_end(wchar_t *out, int outlen)
+{
+    int n = 0;
+    if (key_broadcast.have_result && key_broadcast.result > 0) {
+        n = key_broadcast.result < outlen ? key_broadcast.result : outlen;
+        memcpy(out, key_broadcast.chars, n * sizeof(wchar_t));
+    }
+    key_broadcast.active = false;
+    key_broadcast.have_result = false;
+    return n;
+}
+#endif
 
 char *handle_restrict_acl_cmdline_prefix(char *p)
 {
@@ -1171,6 +1313,29 @@ static void wintw_set_raw_mouse_mode_pointer(TermWin *tw, bool activate)
     update_mouse_pointer(wgs);
 }
 
+#ifdef PUTTY_CLUSTER
+static void destroy_session_window_callback(void *vctx)
+{
+    WinGuiSeat *wgs = (WinGuiSeat *)vctx;
+    DestroyWindow(wgs->term_hwnd);
+}
+#endif
+
+/*
+ * A session wants its window closed (e.g. "close window on exit").
+ * Ordinary PuTTY quits the process. cputty closes just this window,
+ * deferred to a toplevel callback because callers may be deep inside
+ * the backend, which closing the window frees.
+ */
+static void request_session_window_close(WinGuiSeat *wgs, int exitcode)
+{
+#ifdef PUTTY_CLUSTER
+    queue_toplevel_callback(destroy_session_window_callback, wgs);
+#else
+    PostQuitMessage(exitcode);
+#endif
+}
+
 /*
  * Print a message box and close the connection.
  */
@@ -1183,7 +1348,7 @@ static void win_seat_connection_fatal(Seat *seat, const char *msg)
     sfree(title);
 
     if (conf_get_int(wgs->conf, CONF_close_on_exit) == FORCE_ON)
-        PostQuitMessage(1);
+        request_session_window_close(wgs, 1);
     else {
         queue_toplevel_callback(close_session, wgs);
     }
@@ -2111,7 +2276,7 @@ static void exit_callback(void *vctx)
          * appropriate action. */
         if (close_on_exit == FORCE_ON ||
             (close_on_exit == AUTO && exitcode != INT_MAX)) {
-            PostQuitMessage(0);
+            request_session_window_close(wgs, 0);
         } else {
             queue_toplevel_callback(close_session, wgs);
             wgs->session_closed = true;
@@ -2202,6 +2367,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
     int resize_action;
     WinGuiSeat *wgs = (WinGuiSeat *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
+#ifdef PUTTY_CLUSTER
+    /* In cputty a session's WinGuiSeat is freed in WM_DESTROY */
+    if (!wgs && message == WM_NCDESTROY)
+        return sw_DefWindowProc(hwnd, message, wParam, lParam);
+#endif
+
     switch (message) {
       case WM_CREATE:
         break;
@@ -2228,7 +2399,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       }
       case WM_DESTROY:
         show_mouseptr(wgs, true);
+#ifdef PUTTY_CLUSTER
+        /* Detach first: WM_NCDESTROY still arrives after this. */
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+        cluster_session_window_destroyed(wgs);   /* frees wgs */
+#else
         PostQuitMessage(0);
+#endif
         return 0;
       case WM_INITMENUPOPUP:
         if ((HMENU)wParam == wgs->savedsess_menu) {
@@ -2265,6 +2442,29 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
           case IDM_NEWSESS:
           case IDM_DUPSESS:
           case IDM_SAVEDSESS: {
+#ifdef PUTTY_CLUSTER
+            /* cputty: open in this process, so it joins the console */
+            Conf *newconf = conf_new();
+            bool needs_config_box;
+            if (wParam == IDM_DUPSESS) {
+                conf_copy_into(newconf, wgs->conf);
+                needs_config_box = false;
+            } else if (wParam == IDM_SAVEDSESS) {
+                unsigned int sessno = ((lParam - IDM_SAVED_MIN)
+                                       / MENU_SAVED_STEP) + 1;
+                if (sessno >= (unsigned)sesslist.nsessions) {
+                    conf_free(newconf);
+                    break;
+                }
+                do_defaults(sesslist.sessions[sessno], newconf);
+                needs_config_box = !conf_launchable(newconf);
+            } else {
+                do_defaults(NULL, newconf);
+                needs_config_box = true;
+            }
+            cluster_launch_session(newconf, needs_config_box);
+            break;
+#endif
             char b[2048];
             char *cl;
             const char *argprefix;
@@ -3259,8 +3459,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 } else break; /* pass to Windows for default processing */
             } else {
                 len = TranslateKey(wgs, message, wParam, lParam, buf);
-                if (len == -1)
+                if (len == -1) {
+#ifdef PUTTY_CLUSTER
+                    /* A keystroke broadcast from the cluster console must
+                     * not do window things (e.g. Alt+F4 would close every
+                     * session, Alt+Space open every system menu). */
+                    if (key_broadcast.active)
+                        return 0;
+#endif
                     return sw_DefWindowProc(hwnd, message, wParam, lParam);
+                }
 
                 if (len != 0) {
                     /*
@@ -4124,6 +4332,48 @@ DECL_WINDOWS_FUNCTION(static, BOOL, ToUnicodeEx,
 DECL_WINDOWS_FUNCTION(static, BOOL, PlaySoundW, (LPCWSTR, HMODULE, DWORD));
 DECL_WINDOWS_FUNCTION(static, BOOL, PlaySoundA, (LPCSTR, HMODULE, DWORD));
 
+#ifdef PUTTY_CLUSTER
+static int broadcast_aware_ToUnicodeEx(UINT vk, UINT scan,
+                                       const BYTE *keystate, wchar_t *out,
+                                       int outlen, HKL layout)
+{
+    if (!key_broadcast.active)
+        return p_ToUnicodeEx(vk, scan, keystate, out, outlen, 0, layout);
+
+    if (key_broadcast.have_result && key_broadcast.vk == vk &&
+        key_broadcast.scan == scan && key_broadcast.layout == layout &&
+        !memcmp(key_broadcast.keystate, keystate, 256)) {
+        int n = key_broadcast.result;
+        if (n > outlen)
+            n = outlen;
+        if (n > 0)
+            memcpy(out, key_broadcast.chars, n * sizeof(wchar_t));
+        return key_broadcast.result;
+    }
+
+    if (key_broadcast.have_result) {
+        /* A session with different settings translated this keystroke
+         * differently (e.g. Ctrl-Alt vs AltGr): translate for it with
+         * flag 4, 'do not change keyboard state' (Windows 10 1607+;
+         * ignored by older versions), so dead-key state stays intact. */
+        return p_ToUnicodeEx(vk, scan, keystate, out, outlen, 4, layout);
+    }
+
+    int r = p_ToUnicodeEx(vk, scan, keystate, out, outlen, 0, layout);
+    key_broadcast.have_result = true;
+    key_broadcast.vk = vk;
+    key_broadcast.scan = scan;
+    key_broadcast.layout = layout;
+    memcpy(key_broadcast.keystate, keystate, 256);
+    key_broadcast.result = r;
+    if (r > 0)
+        memcpy(key_broadcast.chars, out,
+               (r < (int)lenof(key_broadcast.chars) ?
+                r : (int)lenof(key_broadcast.chars)) * sizeof(wchar_t));
+    return r;
+}
+#endif
+
 static void init_winfuncs(void)
 {
     HMODULE user32_module = load_system32_dll("user32.dll");
@@ -4692,8 +4942,14 @@ static int TranslateKey(WinGuiSeat *wgs, UINT message, WPARAM wParam,
          * be is? There's indication on MS' website of an Inquire/InquireEx
          * functioning returning a KBINFO structure which tells us. */
         if (osPlatformId == VER_PLATFORM_WIN32_NT && p_ToUnicodeEx) {
+#ifdef PUTTY_CLUSTER
+            r = broadcast_aware_ToUnicodeEx(wParam, scan, keystate,
+                                            keys_unicode, lenof(keys_unicode),
+                                            kbd_layout);
+#else
             r = p_ToUnicodeEx(wParam, scan, keystate, keys_unicode,
                               lenof(keys_unicode), 0, kbd_layout);
+#endif
         } else {
             /* XXX 'keys' parameter is declared in MSDN documentation as
              * 'LPWORD lpChar'.

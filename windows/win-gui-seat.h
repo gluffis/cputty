@@ -163,3 +163,17 @@ static inline void wgs_unlink(WinGuiSeat *wgs)
     wgs->wgslistnode.prev->next = wgs->wgslistnode.next;
     wgs->wgslistnode.next->prev = wgs->wgslistnode.prev;
 }
+
+#ifdef PUTTY_CLUSTER
+/* cputty: in window.c */
+WinGuiSeat *win_new_session_window(Conf *conf, int show);
+void win_free_session(WinGuiSeat *wgs);
+void win_broadcast_key_begin(void);
+int win_broadcast_key_end(wchar_t *out, int outlen);
+
+/* cputty: in cluster.c */
+void cluster_setup(const char *cmdline, int show);
+bool cluster_filter_message(MSG *msg);
+void cluster_session_window_destroyed(WinGuiSeat *wgs);
+void cluster_launch_session(Conf *conf, bool needs_config_box);
+#endif

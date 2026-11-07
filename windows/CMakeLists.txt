@@ -112,6 +112,26 @@ target_link_libraries(putty
 set_target_properties(putty PROPERTIES WIN32_EXECUTABLE ON)
 installed_program(putty)
 
+# cputty: cluster-SSH style front end, one input console driving many
+# PuTTY sessions in one process. window.c is compiled with
+# PUTTY_CLUSTER to hand over to cluster.c (cf. unix/cluster-gtk.c).
+add_executable(cputty
+  window.c
+  putty.c
+  cluster.c
+  help.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  putty.rc)
+target_compile_definitions(cputty PRIVATE PUTTY_CLUSTER)
+be_list(cputty PuTTY SSH)
+add_dependencies(cputty generated_licence_h)
+target_link_libraries(cputty
+  guiterminal guimisc eventloop sshclient otherbackends settings network crypto
+  utils
+  ${platform_libraries})
+set_target_properties(cputty PROPERTIES WIN32_EXECUTABLE ON)
+installed_program(cputty)
+
 add_executable(puttygen
   puttygen.c
   ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
