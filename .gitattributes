@@ -1,0 +1,8 @@
+# Line endings as in upstream PuTTY: LF in text files. Git converts
+# CRLF to LF when a file is committed, so an editor set to CRLF can't
+# bring CRLF back into the repository. Binary files (icons and so on)
+# are detected automatically and stored untouched.
+* text=auto eol=lf
+
+# Upstream keeps this one file with CRLF line endings; store it as-is.
+windows/README-msi.txt -text
