@@ -198,6 +198,8 @@ if(GTK_FOUND)
       putty.c
       main-gtk-simple.c
       cluster-gtk.c
+      ${CMAKE_SOURCE_DIR}/cluster-groups.c
+      ${CMAKE_SOURCE_DIR}/cluster-layout.c
       ${CMAKE_SOURCE_DIR}/stubs/no-console.c)
     target_compile_definitions(cputty PRIVATE GTK_CLUSTER)
     be_list(cputty PuTTY SSH)

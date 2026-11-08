@@ -118,6 +118,16 @@ add_executable(test_wildcard
 target_compile_definitions(test_wildcard PRIVATE TEST)
 target_link_libraries(test_wildcard utils ${platform_libraries})
 
+add_executable(test_cluster_groups
+  test/test_cluster_groups.c
+  cluster-groups.c)
+target_link_libraries(test_cluster_groups utils ${platform_libraries})
+
+add_executable(test_cluster_layout
+  test/test_cluster_layout.c
+  cluster-layout.c)
+target_link_libraries(test_cluster_layout utils ${platform_libraries})
+
 add_executable(test_cert_expr
   utils/cert-expr.c)
 target_compile_definitions(test_cert_expr PRIVATE TEST)

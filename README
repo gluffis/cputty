@@ -42,17 +42,62 @@ command line, plus a console window:
    and other keyboard-layout features work in broadcast input too.
 
  - Sessions whose connection has closed stop receiving console input.
-   New Session, Duplicate Session and Saved Sessions from a terminal
-   window's menu open in the same process and join the host list.
+   The console's "New session" button, and New Session, Duplicate
+   Session and Saved Sessions from a terminal window's menu, open in the
+   same process and join the host list.
 
- - Closing the console closes every session (it asks first if any are
-   still connected). cputty also exits when the last session closes.
+ - Terminal windows open in a cascade from the top left of the screen,
+   each a little below and to the right of the last, so you can see
+   each one open. The console goes in the bottom right corner, in front.
+   (Window positions can't be chosen under Wayland, so there the
+   desktop places the windows.)
 
-All putty options are accepted and apply to every host. Every
-non-option argument is a host name, so use -P to choose a port. A
-password given with -pw is offered to every host. With no hosts,
-cputty starts a single session the way putty does. See "man cputty"
-for details.
+ - The console's "Arrange windows" button tiles all the terminal
+   windows and the console evenly over the screen, in rows, with the
+   console in the bottom right corner. The terminals resize to fit
+   their tiles; the console never gets smaller than it can usefully be.
+
+ - The console stays open when all the sessions have closed, so that
+   you can open more. Closing the console closes every session (it asks
+   first if any are still connected) and exits cputty.
+
+All putty options are accepted and apply to every host, including
+hosts opened later from a group. Every non-option argument is a host
+or the name of a host group. A host can be written as host,
+user@host, host:port or the name of a saved session ([address]:port
+for an IPv6 address). A password given with -pw is offered to every
+host. With no hosts, cputty opens just the console, from which you can
+open a group or a new session (or, with -load, the saved session).
+See "man cputty" for details.
+
+
+Host groups
+-----------
+
+A group is a name for a set of hosts. The console lists your groups:
+click one to open a session to each of its hosts. To make a group,
+open and tick the hosts you want, press "Save ticked hosts as group"
+and type a name. Right-click a group to delete it. A group name can also be used
+on the command line:
+
+  cputty -l root web
+
+Groups are kept in a plain text file that you can also edit by hand,
+one group per line: the name, then its hosts, separated by spaces.
+Lines starting with # are comments.
+
+  # name  hosts
+  web     arrange=yes web1 web2 root@web3:2222
+  db      db1 db2
+
+arrange=yes makes opening the group also arrange all the windows, as
+the "Arrange windows" button does; the Save dialog has a checkbox for
+it. (A word containing = is a setting like this rather than a host.)
+
+The file is ~/.config/putty/cputty-groups (or ~/.putty/cputty-groups,
+wherever your PuTTY settings are) on Linux, and
+%APPDATA%\cputty\groups.txt on Windows. The console picks up changes
+to it when you next switch to the console.
 
 
 Other differences from upstream PuTTY

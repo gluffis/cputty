@@ -119,6 +119,8 @@ add_executable(cputty
   window.c
   putty.c
   cluster.c
+  ${CMAKE_SOURCE_DIR}/cluster-groups.c
+  ${CMAKE_SOURCE_DIR}/cluster-layout.c
   help.c
   ${CMAKE_SOURCE_DIR}/stubs/no-console.c
   putty.rc)

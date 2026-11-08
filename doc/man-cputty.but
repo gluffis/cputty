@@ -1,4 +1,4 @@
-\cfg{man-identity}{cputty}{1}{2026-11-07}{PuTTY tool suite}{PuTTY tool suite}
+\cfg{man-identity}{cputty}{1}{2026-11-08}{PuTTY tool suite}{PuTTY tool suite}
 
 \H{cputty-manpage} Man page for cputty
 
@@ -8,8 +8,8 @@
 
 \S{cputty-manpage-synopsis} SYNOPSIS
 
-\c cputty [ options ] host [ host ... ]
-\e bbbbbb   iiiiiii     iiii   iiii
+\c cputty [ options ] [ host | group ... ]
+\e bbbbbb   iiiiiii     iiii   iiiii
 
 \S{cputty-manpage-description} DESCRIPTION
 
@@ -30,39 +30,101 @@ separately, so terminal modes such as application cursor keys are
 honoured per session. Sessions whose connection has closed no longer
 receive input from the console; close their windows directly.
 
-Closing the console window closes all the sessions and exits
-\cw{cputty}. \cw{cputty} also exits when the last session window is
-closed.
+The terminal windows open in a cascade from the top left of the
+screen, each a little below and to the right of the last, and the
+console is placed in the bottom right corner, in front of them. The
+console's \q{Arrange windows} button tiles all the terminal windows
+and the console evenly over the screen, in rows, with the console in
+the bottom right corner. The terminals resize to fit their tiles; the
+console is never made smaller than it can usefully be.
 
-Sessions started from a terminal window's menu (\q{New Session},
-\q{Duplicate Session} and \q{Saved Sessions}) open in the same
-process and join the console's host list.
+The console lists your host groups (see HOST GROUPS below).
+Its \q{New session} button opens the configuration box for a new
+session. Sessions started from a terminal window's menu (\q{New
+Session}, \q{Duplicate Session} and \q{Saved Sessions}) also open in
+the same process and join the console's host list.
+
+The console stays open when all the sessions have closed, so that more
+can be opened from it. Closing the console window closes all the
+sessions and exits \cw{cputty}.
+
+\S{cputty-manpage-groups} HOST GROUPS
+
+A host group is a name for a set of hosts. The console shows a button
+for each group: click it to open a session to each of the group's
+hosts. To make a group, open and tick the hosts you want in it, press
+\q{Save ticked hosts as group} and type a name. Right-click a group's button to
+delete the group. A group name can also be given on the command line
+in place of a host.
+
+Groups are kept in a plain text file (see FILES below),
+which can also be edited by hand. Each line is a group name followed
+by its hosts, separated by spaces or tabs. Blank lines and lines
+starting with \cw{#} are ignored, as is anything after a word starting
+with \cw{#}. For example:
+
+\c # name  hosts
+\c web     arrange=yes web1 web2 root@web3:2222
+\c db      db1 db2
+
+Each host in a group is written the same way as a \e{host} argument on
+the command line (see OPTIONS below). Words starting with
+\cw{-} are ignored, so a group can't contain command-line options. The
+console reads the file again whenever you switch to it.
+
+A word containing \cw{=} is a setting for the group rather than a
+host. \cw{arrange=yes} makes opening the group also arrange all the
+windows, as the \q{Arrange windows} button does (\cw{arrange=no}, the
+default, doesn't). The \q{Save ticked hosts as group} dialog has a
+checkbox for it. Settings that \cw{cputty} doesn't recognise are
+ignored.
 
 \S{cputty-manpage-options} OPTIONS
 
 \cw{cputty} accepts the same options as \cw{putty}(\e{1}). Each
-option applies to every host. Each \e{host} argument is interpreted as
-\cw{putty} would interpret its own host argument, so for example
-\cw{user@host} is accepted.
+option applies to every host, including hosts opened later from a
+group.
 
 Unlike \cw{putty}, \cw{cputty} treats \e{every} non-option argument as
-a host name. To connect to a non-default port, use \cw{\-P}
-\e{port}.
+a host, or as the name of a host group if there is a group of that
+name. Each \e{host} is interpreted as \cw{putty} would interpret its
+own host argument, so for example \cw{user@host} and the name of a
+saved session are accepted. A host may also be followed by
+\cw{:}\e{port} to connect to a non-default port (for an IPv6 address,
+put it in square brackets first, as in \cw{[2001:db8::1]:2222}), or the
+port for every host can be set with \cw{\-P} \e{port}.
 
-If no \e{host} is given, \cw{cputty} starts a single session as
-\cw{putty} would (from \cw{\-load}, or via the configuration box).
-More sessions can then be added from the terminal window's menu.
+If no \e{host} is given, \cw{cputty} opens just the console, from
+which a group or a new session can be opened. If a saved session is
+given with \cw{\-load}, that session is opened as well.
+
+\S{cputty-manpage-files} FILES
+
+\dt \cw{~/.config/putty/cputty-groups}
+
+\dd The host groups file. It is kept in the same directory as the rest
+of the PuTTY configuration, so it may instead be
+\cw{~/.putty/cputty-groups}, or under \cw{$PUTTYDIR} if that is set.
 
 \S{cputty-manpage-examples} EXAMPLES
 
 \c cputty -l root web1 web2 web3
 
-\c cputty -ssh -i ~/.ssh/admin.ppk admin@db1 admin@db2
+\c cputty -ssh -i ~/.ssh/admin.ppk admin@db1 admin@db2:2222
+
+\c cputty -l root web
 
 \S{cputty-manpage-limitations} LIMITATIONS
 
-A \cw{\-geometry} option applies to every window, so giving a window
-position will place all the windows on top of each other.
+A size given with \cw{\-geometry} applies to every window. A position
+given with \cw{\-geometry} is used for the first window, and the
+others cascade from it.
+
+Window positions can't be chosen on a Wayland display, so there the
+desktop decides where the windows go.
+
+A host whose name contains spaces or an \cw{=} sign (such as a saved
+session with one in its name) can't be put in a group.
 
 A password given with \cw{\-pw} is offered to every host.
 

@@ -167,6 +167,8 @@ static inline void wgs_unlink(WinGuiSeat *wgs)
 #ifdef PUTTY_CLUSTER
 /* cputty: in window.c */
 WinGuiSeat *win_new_session_window(Conf *conf, int show);
+/* Create the next session window at this position, not the default */
+void win_set_next_window_position(int x, int y);
 void win_free_session(WinGuiSeat *wgs);
 void win_broadcast_key_begin(void);
 int win_broadcast_key_end(wchar_t *out, int outlen);
@@ -175,5 +177,8 @@ int win_broadcast_key_end(wchar_t *out, int outlen);
 void cluster_setup(const char *cmdline, int show);
 bool cluster_filter_message(MSG *msg);
 void cluster_session_window_destroyed(WinGuiSeat *wgs);
-void cluster_launch_session(Conf *conf, bool needs_config_box);
+/* hostspec: how to open the host again (for host groups), or NULL to
+ * work it out from the Conf */
+void cluster_launch_session(Conf *conf, bool needs_config_box,
+                            const char *hostspec);
 #endif

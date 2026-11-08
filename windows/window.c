@@ -149,6 +149,18 @@ static struct {
 static int broadcast_aware_ToUnicodeEx(UINT vk, UINT scan,
                                        const BYTE *keystate, wchar_t *out,
                                        int outlen, HKL layout);
+
+/* Position for the next session window, chosen by cluster.c so that
+ * session windows cascade rather than piling up */
+static bool next_window_pos_set;
+static int next_window_x, next_window_y;
+
+void win_set_next_window_position(int x, int y)
+{
+    next_window_pos_set = true;
+    next_window_x = x;
+    next_window_y = y;
+}
 #endif
 
 enum MONITOR_DPI_TYPE { MDT_EFFECTIVE_DPI, MDT_ANGULAR_DPI, MDT_RAW_DPI, MDT_DEFAULT };
@@ -540,6 +552,15 @@ static WinGuiSeat *new_session_window(Conf *conf, int show,
         if (conf_get_bool(wgs->conf, CONF_sunken_edge))
             exwinmode |= WS_EX_CLIENTEDGE;
 
+        int create_x = CW_USEDEFAULT, create_y = CW_USEDEFAULT;
+#ifdef PUTTY_CLUSTER
+        if (next_window_pos_set) {
+            create_x = next_window_x;
+            create_y = next_window_y;
+            next_window_pos_set = false;
+        }
+#endif
+
 #ifdef TEST_ANSI_WINDOW
         /* For developer testing of ANSI window support, pretend
          * CreateWindowExW failed */
@@ -552,7 +573,7 @@ static WinGuiSeat *new_session_window(Conf *conf, int show,
         sw_DefWindowProc = DefWindowProcW;
         wgs->term_hwnd = CreateWindowExW(
             exwinmode, terminal_window_class_w(), uappname,
-            winmode, CW_USEDEFAULT, CW_USEDEFAULT,
+            winmode, create_x, create_y,
             guess_width, guess_height, NULL, NULL, hinst, NULL);
 #endif
 
@@ -566,7 +587,7 @@ static WinGuiSeat *new_session_window(Conf *conf, int show,
             sw_DefWindowProc = DefWindowProcA;
             wgs->term_hwnd = CreateWindowExA(
                 exwinmode, terminal_window_class_a(), appname,
-                winmode, CW_USEDEFAULT, CW_USEDEFAULT,
+                winmode, create_x, create_y,
                 guess_width, guess_height, NULL, NULL, hinst, NULL);
         }
 #endif
@@ -2446,6 +2467,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             /* cputty: open in this process, so it joins the console */
             Conf *newconf = conf_new();
             bool needs_config_box;
+            const char *hostspec = NULL;
             if (wParam == IDM_DUPSESS) {
                 conf_copy_into(newconf, wgs->conf);
                 needs_config_box = false;
@@ -2458,11 +2480,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 }
                 do_defaults(sesslist.sessions[sessno], newconf);
                 needs_config_box = !conf_launchable(newconf);
+                /* Remembered by name, for saving in a host group */
+                if (!needs_config_box)
+                    hostspec = sesslist.sessions[sessno];
             } else {
                 do_defaults(NULL, newconf);
                 needs_config_box = true;
             }
-            cluster_launch_session(newconf, needs_config_box);
+            cluster_launch_session(newconf, needs_config_box, hostspec);
             break;
 #endif
             char b[2048];

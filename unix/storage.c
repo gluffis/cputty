@@ -996,3 +996,107 @@ void write_random_seed(void *data, int len)
 void cleanup_all(void)
 {
 }
+
+/* ----------------------------------------------------------------------
+ * cputty's host groups file (see cluster-groups.h), kept alongside the
+ * rest of the PuTTY configuration.
+ */
+#include "cluster-groups.h"
+
+#define CLUSTER_GROUPS_FILENAME "cputty-groups"
+
+char *cluster_groups_path(void)
+{
+    char *dir = make_filename(INDEX_DIR, NULL);
+    char *path = dupprintf("%s/" CLUSTER_GROUPS_FILENAME, dir);
+    sfree(dir);
+    return path;
+}
+
+char *cluster_groups_read(char **errmsg)
+{
+    char *path = cluster_groups_path();
+    FILE *fp = fopen(path, "r");
+
+    *errmsg = NULL;
+    if (!fp) {
+        if (errno != ENOENT)
+            *errmsg = dupprintf("Unable to read %s: %s", path,
+                                strerror(errno));
+        sfree(path);
+        return NULL;
+    }
+
+    strbuf *sb = strbuf_new();
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), fp)) > 0)
+        put_data(sb, buf, n);
+    if (ferror(fp)) {
+        *errmsg = dupprintf("Unable to read %s: %s", path, strerror(errno));
+        strbuf_free(sb);
+        sb = NULL;
+    }
+    fclose(fp);
+    sfree(path);
+    return sb ? strbuf_to_str(sb) : NULL;
+}
+
+bool cluster_groups_write(const char *text, char **errmsg)
+{
+    char *dir = make_filename(INDEX_DIR, NULL);
+    char *err = make_dir_path(dir, 0700);
+    if (err) {
+        *errmsg = dupprintf("Unable to save groups: %s", err);
+        sfree(err);
+        sfree(dir);
+        return false;
+    }
+
+    /* Write a temporary file and rename it over the old one, so that
+     * a failure part way through can't leave a truncated file. */
+    char *path = dupprintf("%s/" CLUSTER_GROUPS_FILENAME, dir);
+    char *tmppath = dupprintf("%s.tmp", path);
+    sfree(dir);
+
+    bool ok = false;
+    int fd = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) {
+        *errmsg = dupprintf("Unable to save groups: %s: %s", tmppath,
+                            strerror(errno));
+        goto out;
+    }
+
+    size_t len = strlen(text), done = 0;
+    while (done < len) {
+        ssize_t ret = write(fd, text + done, len - done);
+        if (ret < 0) {
+            if (errno == EINTR)
+                continue;
+            *errmsg = dupprintf("Unable to save groups: %s: %s", tmppath,
+                                strerror(errno));
+            close(fd);
+            unlink(tmppath);
+            goto out;
+        }
+        done += ret;
+    }
+    if (close(fd) < 0) {
+        *errmsg = dupprintf("Unable to save groups: %s: %s", tmppath,
+                            strerror(errno));
+        unlink(tmppath);
+        goto out;
+    }
+    if (rename(tmppath, path) < 0) {
+        *errmsg = dupprintf("Unable to save groups: %s: %s", path,
+                            strerror(errno));
+        unlink(tmppath);
+        goto out;
+    }
+    ok = true;
+
+  out:
+    sfree(path);
+    sfree(tmppath);
+    return ok;
+}

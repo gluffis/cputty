@@ -866,3 +866,130 @@ void cleanup_all(void)
      * Now we're done.
      */
 }
+
+/* ----------------------------------------------------------------------
+ * cputty's host groups file (see cluster-groups.h). PuTTY keeps its
+ * settings in the registry, but the groups are meant to be easy to
+ * edit by hand, so they go in a text file: %APPDATA%\cputty\groups.txt.
+ */
+#include <errno.h>
+#include "cluster-groups.h"
+
+static char *cluster_groups_dir(void)
+{
+    if (!tried_shgetfolderpath) {
+        shell32_module = load_system32_dll("shell32.dll");
+        GET_WINDOWS_FUNCTION(shell32_module, SHGetFolderPathA);
+        tried_shgetfolderpath = true;
+    }
+
+    char profile[MAX_PATH + 1];
+    if (p_SHGetFolderPathA &&
+        SUCCEEDED(p_SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL,
+                                     SHGFP_TYPE_CURRENT, profile)))
+        return dupcat(profile, "\\cputty");
+    return NULL;
+}
+
+char *cluster_groups_path(void)
+{
+    char *dir = cluster_groups_dir();
+    if (!dir)
+        return NULL;
+    char *path = dupcat(dir, "\\groups.txt");
+    sfree(dir);
+    return path;
+}
+
+char *cluster_groups_read(char **errmsg)
+{
+    *errmsg = NULL;
+    char *path = cluster_groups_path();
+    if (!path)
+        return NULL;                   /* nowhere to look: no groups */
+
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        if (errno != ENOENT)
+            *errmsg = dupprintf("Unable to read %s: %s", path,
+                                strerror(errno));
+        sfree(path);
+        return NULL;
+    }
+
+    strbuf *sb = strbuf_new();
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), fp)) > 0)
+        put_data(sb, buf, n);
+    if (ferror(fp)) {
+        *errmsg = dupprintf("Unable to read %s: %s", path, strerror(errno));
+        strbuf_free(sb);
+        sb = NULL;
+    }
+    fclose(fp);
+    sfree(path);
+    return sb ? strbuf_to_str(sb) : NULL;
+}
+
+bool cluster_groups_write(const char *text, char **errmsg)
+{
+    char *dir = cluster_groups_dir();
+    if (!dir) {
+        *errmsg = dupstr("Unable to save groups: can't find the "
+                         "Application Data folder");
+        return false;
+    }
+    if (!CreateDirectoryA(dir, NULL) &&
+        GetLastError() != ERROR_ALREADY_EXISTS) {
+        *errmsg = dupprintf("Unable to save groups: unable to create %s: %s",
+                            dir, win_strerror(GetLastError()));
+        sfree(dir);
+        return false;
+    }
+
+    char *path = dupcat(dir, "\\groups.txt");
+    char *tmppath = dupcat(dir, "\\groups.tmp");
+    sfree(dir);
+
+    /* Windows line endings, so that any editor is happy with it */
+    strbuf *sb = strbuf_new();
+    for (const char *p = text; *p; p++) {
+        if (*p == '\n')
+            put_byte(sb, '\r');
+        put_byte(sb, *p);
+    }
+
+    /* Write a temporary file and move it over the old one, so that a
+     * failure part way through can't leave a truncated file. */
+    bool ok = false;
+    FILE *fp = fopen(tmppath, "wb");
+    if (!fp) {
+        *errmsg = dupprintf("Unable to save groups: %s: %s", tmppath,
+                            strerror(errno));
+        goto out;
+    }
+    bool written = fwrite(sb->s, 1, sb->len, fp) == sb->len;
+    if (fclose(fp) != 0)
+        written = false;
+    if (!written) {
+        *errmsg = dupprintf("Unable to save groups: error writing %s",
+                            tmppath);
+        remove(tmppath);
+        goto out;
+    }
+    if (!MoveFileExA(tmppath, path,
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        *errmsg = dupprintf("Unable to save groups: %s: %s", path,
+                            win_strerror(GetLastError()));
+        remove(tmppath);
+        goto out;
+    }
+    ok = true;
+
+  out:
+    strbuf_free(sb);
+    sfree(path);
+    sfree(tmppath);
+    return ok;
+}
