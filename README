@@ -115,6 +115,11 @@ Other differences from upstream PuTTY
    PuTTY's side-channel tests still hold. Some hot paths (buffer
    appends and scrollback compression) have been tuned.
 
+ - Hardened Linux builds. On Unix, CMake turns on the exploit
+   mitigations Linux distributions use for their own packages: stack
+   protector, _FORTIFY_SOURCE=3 (except in Debug builds), stack clash
+   and control-flow protection, and full RELRO.
+
  - Version strings identify the build as cputty, for example
    "cputty 1.1.0 (based on PuTTY 0.85)" and the SSH banner
    "SSH-2.0-PuTTY_cputty_1.1.0", so servers don't mistake it for an
@@ -150,8 +155,9 @@ directory:
 
 This builds a Release build with link-time optimisation. Pass
 -DPUTTY_LTO=OFF to turn link-time optimisation off, or
--DCMAKE_BUILD_TYPE=Debug for a debug build. On Linux you need the GTK 3
-development files.
+-DCMAKE_BUILD_TYPE=Debug for a debug build. On Unix, the exploit
+mitigations described above are on by default; -DPUTTY_HARDENING=OFF
+turns them off. On Linux you need the GTK 3 development files.
 
 To cross-compile the Windows programs on Linux with mingw-w64:
 

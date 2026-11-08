@@ -1059,8 +1059,17 @@ bool cluster_groups_write(const char *text, char **errmsg)
     char *tmppath = dupprintf("%s.tmp", path);
     sfree(dir);
 
+    /*
+     * Create the temporary file afresh. With O_EXCL, open() fails
+     * rather than following a symlink planted at that name or reusing
+     * a file someone else created, so the write can't be redirected
+     * elsewhere. A leftover from an interrupted save is removed first
+     * (unlink removes a symlink itself, not what it points to).
+     */
     bool ok = false;
-    int fd = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    int fd = -1;
+    if (unlink(tmppath) == 0 || errno == ENOENT)
+        fd = open(tmppath, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) {
         *errmsg = dupprintf("Unable to save groups: %s: %s", tmppath,
                             strerror(errno));

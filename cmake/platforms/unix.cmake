@@ -214,6 +214,38 @@ if(STRICT AND (CMAKE_C_COMPILER_ID MATCHES "GNU" OR
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wpointer-arith -Wvla")
 endif()
 
+# Exploit mitigations of the kind Linux distributions build their own
+# packages with (Debian's putty included): stack protector, fortified
+# libc calls, stack clash protection, control-flow protection (x86)
+# and full RELRO. Each is used only if the toolchain supports it.
+option(PUTTY_HARDENING
+  "Build with compiler and linker exploit mitigations" ON)
+if(PUTTY_HARDENING AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  foreach(flag -fstack-protector-strong -fstack-clash-protection
+      -fcf-protection)
+    string(MAKE_C_IDENTIFIER "HAVE_CFLAG${flag}" var)
+    check_c_compiler_flag(${flag} ${var})
+    if(${var})
+      add_compile_options(${flag})
+    endif()
+  endforeach()
+
+  # _FORTIFY_SOURCE only works with optimisation (it warns at -O0), so
+  # leave it out of Debug builds. Undefine it first, in case the
+  # compiler or CFLAGS already set a different level.
+  add_compile_options($<$<NOT:$<CONFIG:Debug>>:-U_FORTIFY_SOURCE>)
+  add_compile_options($<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=3>)
+
+  include(CheckCSourceCompiles)
+  set(CMAKE_REQUIRED_FLAGS "-Wl,-z,relro -Wl,-z,now")
+  check_c_source_compiles("int main(void) { return 0; }" HAVE_LDFLAG_Z_NOW)
+  unset(CMAKE_REQUIRED_FLAGS)
+  if(HAVE_LDFLAG_Z_NOW)
+    set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro -Wl,-z,now")
+  endif()
+endif()
+
 function(installed_program target)
   if(CMAKE_VERSION VERSION_LESS 3.14)
     # CMake 3.13 and earlier required an explicit install destination.
