@@ -13,7 +13,7 @@
  * not use upstream's "Release-X.Y" form, so that servers applying
  * version-based workarounds don't mistake this for official PuTTY.)
  */
-#define RELEASE 1.0.0
-#define TEXTVER "cputty 1.0.0 (based on PuTTY 0.85)"
-#define SSHVER "-cputty-1.0.0"
-#define BINARY_VERSION 1,0,0,0
+#define RELEASE 1.1.0
+#define TEXTVER "cputty 1.1.0 (based on PuTTY 0.85)"
+#define SSHVER "-cputty-1.1.0"
+#define BINARY_VERSION 1,1,0,0

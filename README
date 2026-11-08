@@ -116,8 +116,8 @@ Other differences from upstream PuTTY
    appends and scrollback compression) have been tuned.
 
  - Version strings identify the build as cputty, for example
-   "cputty 1.0.0 (based on PuTTY 0.85)" and the SSH banner
-   "SSH-2.0-PuTTY_cputty_1.0.0", so servers don't mistake it for an
+   "cputty 1.1.0 (based on PuTTY 0.85)" and the SSH banner
+   "SSH-2.0-PuTTY_cputty_1.1.0", so servers don't mistake it for an
    official PuTTY release.
 
 The other programs (putty, plink, pscp, psftp, puttygen, pageant, pterm)
