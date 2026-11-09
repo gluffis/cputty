@@ -67,7 +67,9 @@ or the name of a host group. A host can be written as host,
 user@host, host:port or the name of a saved session ([address]:port
 for an IPv6 address). A password given with -pw is offered to every
 host. With no hosts, cputty opens just the console, from which you can
-open a group or a new session (or, with -load, the saved session).
+open a group or a new session (or, with -load, the saved session). On
+Windows, if nothing was opened, the console asks for hosts to connect
+to; its "Add hosts" button does the same at any time.
 See "man cputty" for details.
 
 

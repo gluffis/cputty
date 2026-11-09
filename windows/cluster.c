@@ -38,8 +38,12 @@ enum {
     IDC_HINT = 100, IDC_ECHO, IDC_HIDE, IDC_HOSTS,
     IDC_ALL, IDC_NONE, IDC_INVERT, IDC_STATUS,
     IDC_GROUPS_LABEL, IDC_GROUPS, IDC_SAVE_GROUP, IDC_NEW_SESSION,
-    IDC_ARRANGE,
+    IDC_ARRANGE, IDC_ADD_HOSTS,
 };
+
+/* Posted to the console to show "Add hosts" once the message loop is
+ * running, when nothing was opened at startup */
+#define WM_CLUSTER_ADD_HOSTS (WM_APP + 1)
 
 /* Size of the console window when it opens, and the smallest size at
  * which its layout works */
@@ -58,7 +62,7 @@ enum {
 static HWND console_hwnd, hint_hwnd, echo_hwnd, hide_hwnd, hosts_hwnd;
 static HWND all_hwnd, none_hwnd, invert_hwnd, status_hwnd;
 static HWND groups_label_hwnd, groups_hwnd, save_group_hwnd;
-static HWND new_session_hwnd, arrange_hwnd;
+static HWND new_session_hwnd, arrange_hwnd, add_hosts_hwnd;
 
 /* Sessions currently open, in creation order, and for each one how to
  * open it again (its host spec, also its label in the host list) */
@@ -441,6 +445,20 @@ static bool launch_host_spec(const char *spec, bool allow_config_box)
          * code page as their main form */
         wchar_t *whost = dup_mb_to_wc(CP_UTF8, host);
         char *acphost = dup_wc_to_mb(CP_ACP, whost, "?");
+        if (host[0] == '-' || acphost[0] == '-') {
+            /* Specs are checked for a leading '-' before splitting,
+             * but "[-x]:22" unwraps to "-x", and code-page conversion
+             * can turn other characters into '-'. Check what would be
+             * parsed, so a host is never read as an option. */
+            char *msg = dupprintf("\"%s\" is not a valid host.", spec);
+            console_message_utf8(msg, MB_OK | MB_ICONWARNING);
+            sfree(msg);
+            sfree(whost);
+            sfree(acphost);
+            sfree(host);
+            conf_free(conf);
+            return false;
+        }
         CmdlineArg *harg = cmdline_arg_from_str(cmdline_args, acphost);
         cmdline_process_param(harg, NULL, 1, conf);
         sfree(whost);
@@ -833,6 +851,147 @@ static void new_session(void)
     cluster_launch_session(conf, true, NULL);
 }
 
+/*
+ * The "Add hosts" dialog: type one or more hosts (or group names),
+ * separated by spaces or new lines, and each is opened as if it had
+ * been named on the command line. Shown by the console's button, and
+ * at startup if there was nothing to open.
+ */
+enum { IDC_AH_INTRO = 300, IDC_AH_HOSTS };
+
+struct add_hosts_dialog {
+    char *result;                      /* UTF-8, set on OK */
+};
+
+static INT_PTR CALLBACK AddHostsProc(HWND hwnd, UINT msg, WPARAM wParam,
+                                     LPARAM lParam)
+{
+    struct add_hosts_dialog *ctx =
+        (struct add_hosts_dialog *)GetWindowLongPtr(hwnd, DWLP_USER);
+
+    switch (msg) {
+      case WM_INITDIALOG:
+        SetWindowLongPtr(hwnd, DWLP_USER, lParam);
+        SetFocus(GetDlgItem(hwnd, IDC_AH_HOSTS));
+        return FALSE;                  /* we set the focus ourselves */
+
+      case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+          case IDOK: {
+            HWND edit = GetDlgItem(hwnd, IDC_AH_HOSTS);
+            int len = GetWindowTextLengthW(edit);
+            wchar_t *buf = snewn(len + 1, wchar_t);
+            GetWindowTextW(edit, buf, len + 1);
+            char *text = dup_wc_to_mb(CP_UTF8, buf, "?");
+            sfree(buf);
+            if (!text[strspn(text, " \t\r\n")]) {
+                MessageBoxW(hwnd, L"Type at least one host, for example "
+                            L"user@host or host:port.", L"Add hosts",
+                            MB_OK | MB_ICONINFORMATION);
+                sfree(text);
+                SetFocus(edit);
+                return TRUE;
+            }
+            ctx->result = text;
+            EndDialog(hwnd, IDOK);
+            return TRUE;
+          }
+          case IDCANCEL:
+            EndDialog(hwnd, IDCANCEL);
+            return TRUE;
+        }
+        break;
+    }
+    return FALSE;
+}
+
+/* Returns the text entered (UTF-8), or NULL if cancelled */
+static char *ask_hosts(void)
+{
+    enum { BUTTON = 0x0080, EDIT = 0x0081, STATIC = 0x0082 };
+    strbuf *t = strbuf_new();
+    dlg_put_dword(t, DS_MODALFRAME | DS_SETFONT | DS_CENTER | WS_POPUP |
+                  WS_CAPTION | WS_SYSMENU);
+    dlg_put_dword(t, 0);               /* extended style */
+    dlg_put_word(t, 4);                /* number of items */
+    dlg_put_word(t, 0);                /* x, y, cx, cy */
+    dlg_put_word(t, 0);
+    dlg_put_word(t, 250);
+    dlg_put_word(t, 140);
+    dlg_put_word(t, 0);                /* no menu */
+    dlg_put_word(t, 0);                /* default class */
+    dlg_put_wstr(t, L"Add hosts");
+    dlg_put_word(t, 8);                /* font size and face */
+    dlg_put_wstr(t, L"MS Shell Dlg");
+    dlg_add_item(t, SS_LEFT | SS_NOPREFIX, 7, 7, 236, 34, IDC_AH_INTRO,
+                 STATIC,
+                 L"Hosts to connect to, separated by spaces or new lines. "
+                 L"Each can be host, user@host, host:port, the name of a "
+                 L"saved session, or the name of a group. Options from "
+                 L"the command line apply to every host.");
+    dlg_add_item(t, WS_BORDER | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE |
+                 ES_AUTOVSCROLL, 7, 44, 236, 70, IDC_AH_HOSTS, EDIT, L"");
+    dlg_add_item(t, BS_DEFPUSHBUTTON | WS_TABSTOP, 139, 120, 50, 14, IDOK,
+                 BUTTON, L"Open");
+    dlg_add_item(t, BS_PUSHBUTTON | WS_TABSTOP, 193, 120, 50, 14, IDCANCEL,
+                 BUTTON, L"Cancel");
+
+    struct add_hosts_dialog ctx = { NULL };
+    INT_PTR r = DialogBoxIndirectParamW(hinst, (LPCDLGTEMPLATEW)t->s,
+                                        console_hwnd, AddHostsProc,
+                                        (LPARAM)&ctx);
+    strbuf_free(t);
+    if (r != IDOK) {
+        sfree(ctx.result);
+        return NULL;
+    }
+    return ctx.result;
+}
+
+static void add_hosts(void)
+{
+    char *text = ask_hosts();
+    if (!text)
+        return;
+
+    load_groups(true);                 /* pick up any edits */
+    strbuf *invalid = strbuf_new();
+    bool arrange = false;
+    const char *seps = " \t\r\n";
+    for (char *p = text + strspn(text, seps); *p;
+         p += strspn(p, seps)) {
+        size_t len = strcspn(p, seps);
+        char *word = dupprintf("%.*s", (int)len, p);
+        p += len;
+
+        const ClusterGroup *g = cluster_groups_find(groups, word);
+        if (g) {
+            if (g->arrange)
+                arrange = true;
+            launch_group_hosts(g);
+        } else if (cluster_host_spec_valid(word)) {
+            launch_host_spec(word, true);
+        } else {
+            put_fmt(invalid, "%s%s", invalid->len ? " " : "", word);
+        }
+        sfree(word);
+    }
+    sfree(text);
+
+    if (invalid->len) {
+        char *msg = dupprintf("These are not valid hosts and were not "
+                              "opened:\n%s", invalid->s);
+        console_message_utf8(msg, MB_OK | MB_ICONWARNING);
+        sfree(msg);
+    }
+    strbuf_free(invalid);
+
+    if (arrange)
+        arrange_windows();             /* also brings the console forward */
+    else
+        SetForegroundWindow(console_hwnd);
+}
+
 /* ----------------------------------------------------------------------
  * The echo field. Keystrokes go to the sessions as they are typed
  * (so Tab completion and full-screen programs work); this is only a
@@ -1035,10 +1194,12 @@ static void layout_console(int w, int h)
     MoveWindow(status_hwnd, m, bottom - (row - 6), cw, row - 6, TRUE);
     bottom -= row - 6 + gap;
 
-    int half = (cw - gap) / 2;
-    MoveWindow(new_session_hwnd, m, bottom - row, half, row, TRUE);
-    MoveWindow(arrange_hwnd, m + half + gap, bottom - row,
-               cw - half - gap, row, TRUE);
+    int third = (cw - 2 * gap) / 3;
+    MoveWindow(add_hosts_hwnd, m, bottom - row, third, row, TRUE);
+    MoveWindow(new_session_hwnd, m + third + gap, bottom - row, third, row,
+               TRUE);
+    MoveWindow(arrange_hwnd, m + 2 * (third + gap), bottom - row,
+               cw - 2 * (third + gap), row, TRUE);
     bottom -= row + gap;
 
     MoveWindow(save_group_hwnd, m, bottom - row, cw, row, TRUE);
@@ -1076,6 +1237,11 @@ static LRESULT CALLBACK ConsoleWndProc(HWND hwnd, UINT message,
         layout_console(LOWORD(lParam), HIWORD(lParam));
         return 0;
 
+      case WM_CLUSTER_ADD_HOSTS:
+        if (nsessions == 0)            /* nothing opened meanwhile */
+            add_hosts();
+        return 0;
+
       case WM_GETMINMAXINFO: {
         MINMAXINFO *mmi = (MINMAXINFO *)lParam;
         mmi->ptMinTrackSize.x = CONSOLE_MIN_WIDTH;
@@ -1103,6 +1269,7 @@ static LRESULT CALLBACK ConsoleWndProc(HWND hwnd, UINT message,
               case IDC_INVERT: set_all_checks(2); break;
               case IDC_SAVE_GROUP: save_group(); break;
               case IDC_NEW_SESSION: new_session(); break;
+              case IDC_ADD_HOSTS: add_hosts(); break;
               case IDC_ARRANGE: arrange_windows(); break;
               case IDC_HIDE: {
                 bool hide = SendMessageA(hide_hwnd, BM_GETCHECK, 0, 0)
@@ -1243,6 +1410,8 @@ static void create_console_window(void)
                             LVS_EX_UNDERLINEHOT | LVS_EX_INFOTIP);
     save_group_hwnd = make_control("BUTTON", "Save ticked hosts as group...",
                                    BS_PUSHBUTTON, 0, IDC_SAVE_GROUP);
+    add_hosts_hwnd = make_control("BUTTON", "Add hosts...",
+                                  BS_PUSHBUTTON, 0, IDC_ADD_HOSTS);
     new_session_hwnd = make_control("BUTTON", "New session...",
                                     BS_PUSHBUTTON, 0, IDC_NEW_SESSION);
     arrange_hwnd = make_control("BUTTON", "Arrange windows",
@@ -1350,4 +1519,9 @@ void cluster_setup(const char *cmdline, int show)
     SetForegroundWindow(console_hwnd);
     if (arrange_at_start)
         arrange_windows();
+
+    /* Nothing to connect to: ask for some hosts, rather than leaving
+     * an empty console */
+    if (nsessions == 0)
+        PostMessage(console_hwnd, WM_CLUSTER_ADD_HOSTS, 0, 0);
 }

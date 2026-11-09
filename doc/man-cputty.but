@@ -96,7 +96,9 @@ port for every host can be set with \cw{\-P} \e{port}.
 
 If no \e{host} is given, \cw{cputty} opens just the console, from
 which a group or a new session can be opened. If a saved session is
-given with \cw{\-load}, that session is opened as well.
+given with \cw{\-load}, that session is opened as well. On Windows,
+if nothing is opened, the console asks for hosts to connect to; its
+\q{Add hosts} button asks again at any time.
 
 \S{cputty-manpage-files} FILES
 

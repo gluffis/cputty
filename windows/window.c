@@ -315,6 +315,8 @@ static const SeatVtable win_seat_vt = {
     .get_cursor_position = win_seat_get_cursor_position,
 };
 
+static void close_session(void *vctx);
+
 static void start_backend(WinGuiSeat *wgs)
 {
     const struct BackendVtable *vt;
@@ -347,7 +349,15 @@ static void start_backend(WinGuiSeat *wgs)
         MessageBox(NULL, msg, str, MB_ICONERROR | MB_OK);
         sfree(str);
         sfree(msg);
+#ifdef PUTTY_CLUSTER
+        /* cputty: other sessions carry on. Leave this one's window
+         * open but inactive, with Restart Session in its menu. */
+        wgs->session_closed = true;
+        queue_toplevel_callback(close_session, wgs);
+        return;
+#else
         exit(0);
+#endif
     }
     term_setup_window_titles(wgs->term, realhost);
     sfree(realhost);
