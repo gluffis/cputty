@@ -144,6 +144,10 @@ packages, are on the releases page:
  - cputty-suite_VERSION_amd64.deb installs the SSH-only putty, plink,
    pscp, psftp, puttygen and pageant, and replaces Debian's putty and
    putty-tools packages.
+ - cputty-VERSION-windows-x86_64.msi installs cputty and the SSH-only
+   tools in Program Files\cputty, with Start menu shortcuts. It
+   doesn't change PATH, so it can be installed alongside PuTTY. The
+   .zip has the same files for use without installing.
 
 
 Building
@@ -175,7 +179,8 @@ subdirectory when Halibut is installed. Halibut is at
 <https://www.chiark.greenend.org.uk/~sgtatham/halibut/>.
 
 release/build-release.sh VERSION builds all the release files (Linux
-tarball, both Debian packages, Windows zip and SHA256SUMS).
+tarball, both Debian packages, Windows zip and installer, and
+SHA256SUMS).
 
 On Unix, pterm would like to be setuid or setgid, as appropriate, to
 permit it to write records of user logins to /var/run/utmp and

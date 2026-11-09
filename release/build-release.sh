@@ -11,13 +11,15 @@
 #                                         replaces Debian's putty and
 #                                         putty-tools
 #   cputty-VERSION-windows-x86_64.zip     Windows 64-bit .exe files
+#   cputty-VERSION-windows-x86_64.msi     the same, as an installer
 #   SHA256SUMS
 #
 # Usage: release/build-release.sh VERSION [OUTPUT_DIR]
 #
 # Needs: cmake, gcc, GTK 3 development files, mingw-w64, halibut (for
-# the man pages), dpkg-dev (dpkg-deb, dpkg-shlibdeps), fakeroot, zip. VERSION must match the
-# RELEASE defined in version.h.
+# the man pages), dpkg-dev (dpkg-deb, dpkg-shlibdeps), fakeroot, zip,
+# msitools (wixl, for the .msi). VERSION must match the RELEASE defined
+# in version.h.
 
 set -euo pipefail
 
@@ -34,7 +36,8 @@ if ! tr -d '\r' < "$SRC/version.h" | grep -qx "#define RELEASE $VERSION"; then
     exit 1
 fi
 
-for tool in halibut dpkg-deb dpkg-shlibdeps fakeroot zip x86_64-w64-mingw32-strip; do
+for tool in halibut dpkg-deb dpkg-shlibdeps fakeroot zip wixl \
+            x86_64-w64-mingw32-strip; do
     if ! command -v "$tool" > /dev/null; then
         echo "error: $tool not found" >&2
         exit 1
@@ -204,8 +207,18 @@ rm -f "$OUT/$zipname.zip"
 (cd "$work" && zip -qr -X "$OUT/$zipname.zip" "$zipname")
 
 # ----------------------------------------------------------------------
+echo "== Windows installer"
+# Built from the files just staged for the zip, so both contain the
+# same stripped executables
+rm -f "$OUT/$zipname.msi"
+wixl -a x64 -D Version="$VERSION" -D Builddir="$work/$zipname" \
+     -D Sourcedir="$SRC" -o "$OUT/$zipname.msi" \
+     "$SRC/windows/cputty-installer.wxs"
+
+# ----------------------------------------------------------------------
 (cd "$OUT" && sha256sum "$tarname.tar.gz" "cputty_${VERSION}_amd64.deb" \
-     "cputty-suite_${VERSION}_amd64.deb" "$zipname.zip" > SHA256SUMS)
+     "cputty-suite_${VERSION}_amd64.deb" "$zipname.zip" "$zipname.msi" \
+     > SHA256SUMS)
 
 echo "== Done: artifacts in $OUT"
 ls -l "$OUT"

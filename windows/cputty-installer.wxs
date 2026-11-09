@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  cputty Windows installer (64-bit), built with wixl from msitools:
+
+    wixl -a x64 -D Version=1.1.1 -D Builddir=DIR -D Sourcedir=SRC \
+         -o cputty-1.1.1-windows-x86_64.msi windows/cputty-installer.wxs
+
+  Builddir holds the stripped .exe files plus LICENCE.txt and
+  README.txt (release/build-release.sh stages them for the zip);
+  Sourcedir is the top of the source tree.
+
+  This is deliberately separate from upstream's installer.wxs. Every
+  GUID here is cputty's own: reusing PuTTY's UpgradeCode would make
+  installing cputty upgrade (that is, remove) an installed PuTTY.
+  Never change the UpgradeCode, or later versions won't replace
+  earlier ones. Component GUIDs must stay the same as long as each
+  component installs the same file to the same place.
+
+  The installer has no wizard pages (wixl doesn't support the WiX UI
+  extension): it installs to Program Files\cputty, adds Start menu
+  shortcuts, and doesn't touch PATH, so the SSH tools here don't
+  shadow those of an installed PuTTY.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="cputty $(var.Version)"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="cputty"
+           UpgradeCode="457AB7B9-6C7A-44F2-93FF-0F8B67AEB4E0">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="cputty $(var.Version) installer"
+             Comments="Cluster SSH based on PuTTY. Not supported by the PuTTY developers." />
+
+    <!-- Installing a newer version removes the older one; installing an
+         older version over a newer one is refused. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of cputty is already installed." />
+
+    <Media Id="1" Cabinet="cputty.cab" EmbedCab="yes" />
+
+    <Icon Id="cputty.ico" SourceFile="$(var.Sourcedir)/windows/putty.ico" />
+    <Property Id="ARPPRODUCTICON" Value="cputty.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/gluffis/cputty" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/gluffis/cputty/issues" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="cputty">
+          <Component Id="cputty_exe" Guid="759B8205-D2F3-47FC-93D8-4FEDA6F8DFF0" Win64="yes">
+            <File Id="cputty_exe" Name="cputty.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/cputty.exe" />
+          </Component>
+          <Component Id="putty_exe" Guid="A193D123-5AF2-4468-9051-3F709D4576C7" Win64="yes">
+            <File Id="putty_exe" Name="putty.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/putty.exe" />
+          </Component>
+          <Component Id="plink_exe" Guid="0C59F2EF-FB7F-49DD-BB70-0D69676AE7C2" Win64="yes">
+            <File Id="plink_exe" Name="plink.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/plink.exe" />
+          </Component>
+          <Component Id="pscp_exe" Guid="9B89428D-DF0A-4F45-9AAE-A1FA284D2454" Win64="yes">
+            <File Id="pscp_exe" Name="pscp.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/pscp.exe" />
+          </Component>
+          <Component Id="psftp_exe" Guid="1E509BD3-8406-4EFB-AFC3-EF5F71EA98A3" Win64="yes">
+            <File Id="psftp_exe" Name="psftp.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/psftp.exe" />
+          </Component>
+          <Component Id="puttygen_exe" Guid="B0C37FE9-E301-45C0-A68B-CD2208ACFBDE" Win64="yes">
+            <File Id="puttygen_exe" Name="puttygen.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/puttygen.exe" />
+          </Component>
+          <Component Id="pageant_exe" Guid="10A8F958-26D9-4B83-A63A-BCB91A8150FE" Win64="yes">
+            <File Id="pageant_exe" Name="pageant.exe" KeyPath="yes"
+                  Source="$(var.Builddir)/pageant.exe" />
+          </Component>
+          <Component Id="licence_txt" Guid="3BF0E9C3-9E42-47D1-8565-1877E30BA6C4" Win64="yes">
+            <File Id="licence_txt" Name="LICENCE.txt" KeyPath="yes"
+                  Source="$(var.Builddir)/LICENCE.txt" />
+          </Component>
+          <Component Id="readme_txt" Guid="268F314F-036D-43CB-A5D3-A69381AA7D47" Win64="yes">
+            <File Id="readme_txt" Name="README.txt" KeyPath="yes"
+                  Source="$(var.Builddir)/README.txt" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ProgramMenuDir" Name="cputty">
+          <Component Id="start_menu" Guid="76071C5E-2CEB-431D-8592-EF56980A348C" Win64="yes">
+            <Shortcut Id="cputty_shortcut" Name="cputty"
+                      Description="Cluster SSH console"
+                      Target="[INSTALLDIR]cputty.exe"
+                      WorkingDirectory="INSTALLDIR" />
+            <Shortcut Id="putty_shortcut" Name="PuTTY (cputty build)"
+                      Description="SSH-only PuTTY from cputty"
+                      Target="[INSTALLDIR]putty.exe"
+                      WorkingDirectory="INSTALLDIR" />
+            <Shortcut Id="puttygen_shortcut" Name="PuTTYgen (cputty build)"
+                      Description="SSH key generator"
+                      Target="[INSTALLDIR]puttygen.exe"
+                      WorkingDirectory="INSTALLDIR" />
+            <Shortcut Id="pageant_shortcut" Name="Pageant (cputty build)"
+                      Description="SSH authentication agent"
+                      Target="[INSTALLDIR]pageant.exe"
+                      WorkingDirectory="INSTALLDIR" />
+            <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+            <!-- A component of shortcuts needs a registry key path -->
+            <RegistryValue Root="HKLM" Key="Software\cputty\Installer"
+                           Name="StartMenuShortcuts" Type="integer" Value="1"
+                           KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="Complete" Title="cputty" Level="1">
+      <ComponentRef Id="cputty_exe" />
+      <ComponentRef Id="putty_exe" />
+      <ComponentRef Id="plink_exe" />
+      <ComponentRef Id="pscp_exe" />
+      <ComponentRef Id="psftp_exe" />
+      <ComponentRef Id="puttygen_exe" />
+      <ComponentRef Id="pageant_exe" />
+      <ComponentRef Id="licence_txt" />
+      <ComponentRef Id="readme_txt" />
+      <ComponentRef Id="start_menu" />
+    </Feature>
+  </Product>
+</Wix>
